@@ -15,6 +15,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [autoRender, setAutoRender] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -37,20 +38,26 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
   const save = async () => {
     setSaving(true);
     setTestResult(null);
+    setSaveToast(null);
     try {
       const body: Record<string, string> = {};
       if (minimaxKey) body.minimax = minimaxKey;
-      // 总是发送 brand —— 即使空（空字符串等于"恢复默认 podcast.cab"）
       if (brandInput !== config?.brand) body.brand = brandInput;
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ConfigState = await res.json();
       setConfig(data);
       setBrandInput(data.brand);
       setMinimaxKey('');
+      setSaveToast('✓ 已保存');
+      setTimeout(() => setSaveToast(null), 2500);
+    } catch (err) {
+      setSaveToast(`✗ 保存失败：${(err as Error).message}`);
+      setTimeout(() => setSaveToast(null), 4000);
     } finally {
       setSaving(false);
     }
@@ -335,6 +342,27 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             </div>
           </label>
         </div>
+
+        {saveToast && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: '10px 14px',
+              borderRadius: 8,
+              fontSize: 13,
+              textAlign: 'center',
+              background: saveToast.startsWith('✓')
+                ? 'rgba(74,222,128,0.12)'
+                : 'rgba(239,68,68,0.12)',
+              border: `1px solid ${
+                saveToast.startsWith('✓') ? 'rgba(74,222,128,0.35)' : 'rgba(239,68,68,0.35)'
+              }`,
+              color: saveToast.startsWith('✓') ? '#a7f3d0' : '#fca5a5',
+            }}
+          >
+            {saveToast}
+          </div>
+        )}
 
         <div style={{display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end'}}>
           <button
