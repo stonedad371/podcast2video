@@ -663,6 +663,11 @@ const VBrandBar: React.FC<{accentColor: string; title: string; brand: string}> =
         lineHeight: 1.15,
         textShadow: '0 4px 24px rgba(0,0,0,0.85)',
         fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
+        // 最多 2 行，超长 ellipsis——下面 480 处有章节胶囊，不能让标题撞上去
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
       }}
     >
       {title}
@@ -893,7 +898,7 @@ const VChapterBanner: React.FC<{index: number; title: string; accentColor: strin
     <div
       style={{
         position: 'absolute',
-        top: 480,
+        top: 540,
         left: 60,
         right: 60,
         display: 'flex',
