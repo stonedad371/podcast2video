@@ -192,7 +192,7 @@ export default function Home() {
         </>
       ) : (
         <div style={{width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 24}}>
-          <JobSummary job={job} />
+          <JobSummary job={job} hasKey={config?.minimax.configured ?? false} />
 
           <AnalysisProgress
             analyzing={analyzing}

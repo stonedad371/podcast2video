@@ -11,7 +11,7 @@ const fmtSec = (sec: number) => {
 
 const fmtMB = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-export function JobSummary({job}: {job: UploadResult}) {
+export function JobSummary({job, hasKey}: {job: UploadResult; hasKey: boolean}) {
   const drift = (job.computed.subtitleTimeScale - 1) * 100;
   const driftText =
     Math.abs(drift) < 0.05
@@ -80,8 +80,11 @@ export function JobSummary({job}: {job: UploadResult}) {
           lineHeight: 1.6,
         }}
       >
-        💡 下一步（Phase 3）：配置 Claude / MiniMax API key → 自动切章节 + 挑金句 + 生封面 →
-        预览并渲染。
+        {hasKey ? (
+          <>✓ MiniMax API key 已配置 — 接下来自动切章节 + 挑金句 + 生封面，然后预览并渲染。</>
+        ) : (
+          <>💡 下一步：点右上角 ⚙️ 配置 MiniMax API key — 自动切章节 + 挑金句 + 生封面，然后预览并渲染。</>
+        )}
       </div>
     </div>
   );
