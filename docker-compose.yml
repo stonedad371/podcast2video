@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    image: podcast-video-app:latest
+    container_name: podcast-video-app
+    ports:
+      - "3010:3000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

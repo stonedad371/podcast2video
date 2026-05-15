@@ -1,0 +1,17 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
+  background: #0b0f17;
+  color: #e5e7eb;
+  min-height: 100vh;
+}
+
+a {
+  color: #fbbf24;
+}
