@@ -10,6 +10,7 @@ import type {PodcastProps} from '@/remotion/Composition';
 
 type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
+  brand: string;
 };
 
 export default function Home() {
@@ -142,7 +143,7 @@ export default function Home() {
             fontSize: 13,
           }}
         >
-          ⚙️ API Key
+          ⚙️ 设置
           {config && (
             <span style={{color: config.minimax.configured ? '#a7f3d0' : '#9ca3af', fontSize: 11}}>
               {config.minimax.configured ? '已配置' : '未配置'}
@@ -221,7 +222,7 @@ export default function Home() {
 
           {fullJob &&
             (() => {
-              const previewProps = buildPreviewProps(fullJob);
+              const previewProps = buildPreviewProps(fullJob, config?.brand ?? 'podcast.cab');
               return previewProps ? <Preview props={previewProps} /> : null;
             })()}
 
@@ -320,7 +321,7 @@ type FullJob = {
   cover?: {path: string; sizeBytes: number};
 };
 
-function buildPreviewProps(job: FullJob): PodcastProps | null {
+function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
   if (!job.cover) return null;
   const audioExt = job.audio.filename.split('.').pop() || 'mp3';
   const srtExt = job.srt.filename.split('.').pop() || 'srt';
@@ -340,6 +341,7 @@ function buildPreviewProps(job: FullJob): PodcastProps | null {
     coverSrc: `/api/cover/${job.id}/image`,
     title: job.config.title,
     subtitle: job.config.subtitle,
+    brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
     subtitleOffsetSec: 0,

@@ -4,11 +4,13 @@ import {useEffect, useState} from 'react';
 
 type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
+  brand: string;
 };
 
 export function SettingsModal({open, onClose}: {open: boolean; onClose: () => void}) {
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [minimaxKey, setMinimaxKey] = useState('');
+  const [brandInput, setBrandInput] = useState('');
   const [testResult, setTestResult] = useState<{ok: boolean; msg: string} | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -18,7 +20,10 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
     if (!open) return;
     fetch('/api/config')
       .then((r) => r.json())
-      .then(setConfig);
+      .then((c: ConfigState) => {
+        setConfig(c);
+        setBrandInput(c.brand);
+      });
     setAutoRender(localStorage.getItem('autoRender') === 'true');
   }, [open]);
 
@@ -35,13 +40,16 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
     try {
       const body: Record<string, string> = {};
       if (minimaxKey) body.minimax = minimaxKey;
+      // 总是发送 brand —— 即使空（空字符串等于"恢复默认 podcast.cab"）
+      if (brandInput !== config?.brand) body.brand = brandInput;
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data: ConfigState = await res.json();
       setConfig(data);
+      setBrandInput(data.brand);
       setMinimaxKey('');
     } finally {
       setSaving(false);
@@ -118,7 +126,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             marginBottom: 16,
           }}
         >
-          <h2 style={{fontSize: 26, fontWeight: 800, color: '#fff'}}>API Key</h2>
+          <h2 style={{fontSize: 26, fontWeight: 800, color: '#fff'}}>设置</h2>
           <button
             onClick={onClose}
             style={{
@@ -264,6 +272,39 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
         <div
           style={{
             marginTop: 20,
+            padding: 16,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid #374151',
+            borderRadius: 10,
+          }}
+        >
+          <div style={{fontSize: 14, fontWeight: 600, color: '#e5e7eb', marginBottom: 8}}>
+            视频品牌标识
+          </div>
+          <div style={{color: '#9ca3af', fontSize: 12, marginBottom: 12, lineHeight: 1.5}}>
+            出现在视频片头、片头钩子顶栏、主体顶部品牌条。留空恢复默认「podcast.cab」。
+          </div>
+          <input
+            type="text"
+            value={brandInput}
+            onChange={(e) => setBrandInput(e.target.value)}
+            placeholder="podcast.cab"
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid #374151',
+              borderRadius: 8,
+              color: '#e5e7eb',
+              fontSize: 14,
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
             padding: 16,
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid #374151',

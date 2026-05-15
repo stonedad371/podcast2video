@@ -4,13 +4,17 @@ import {promises as fs} from 'node:fs';
 import {getJob, updateJob, OUTPUT_DIR, ensureDirs} from '@/lib/jobs';
 import {renderVideo} from '@/lib/render';
 import {ensureChapterImages} from '@/lib/chapter-images';
-import {loadKeys} from '@/lib/config';
+import {loadKeys, getBrand} from '@/lib/config';
 import type {PodcastProps} from '@/remotion/Composition';
 
 export const runtime = 'nodejs';
 export const maxDuration = 600;
 
-function buildProps(job: Awaited<ReturnType<typeof getJob>>, baseUrl: string): PodcastProps {
+function buildProps(
+  job: Awaited<ReturnType<typeof getJob>>,
+  baseUrl: string,
+  brand: string,
+): PodcastProps {
   if (!job) throw new Error('no job');
   if (!job.cover) throw new Error('封面图还没生成，请先在主页生成封面');
   const audioExt = path.extname(job.audio.path).slice(1) || 'mp3';
@@ -30,6 +34,7 @@ function buildProps(job: Awaited<ReturnType<typeof getJob>>, baseUrl: string): P
     coverSrc: `${baseUrl}/api/cover/${job.id}/image`,
     title: job.config.title,
     subtitle: job.config.subtitle,
+    brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
     subtitleOffsetSec: 0,
@@ -67,9 +72,10 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   await fs.mkdir(outDir, {recursive: true});
   const outputPath = path.join(outDir, 'video.mp4');
 
+  const brand = await getBrand();
   let inputProps: PodcastProps;
   try {
-    inputProps = buildProps(job, origin);
+    inputProps = buildProps(job, origin, brand);
   } catch (err) {
     return NextResponse.json({error: (err as Error).message}, {status: 400});
   }

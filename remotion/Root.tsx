@@ -8,6 +8,7 @@ const DEFAULT_PROPS: PodcastProps = {
   coverSrc: 'http://localhost:3000/empty.jpg',
   title: '播客标题',
   subtitle: '副标题',
+  brand: 'podcast.cab',
   accentColor: '#fbbf24',
   speakers: {
     主持: {label: '主持', color: '#38bdf8', align: 'left'},

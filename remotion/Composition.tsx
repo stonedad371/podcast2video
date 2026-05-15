@@ -31,6 +31,7 @@ export const podcastSchema = z.object({
   coverSrc: z.string(),
   title: z.string(),
   subtitle: z.string(),
+  brand: z.string(),
   accentColor: zColor(),
   speakers: z.record(z.string(), speakerStyleSchema),
   subtitleOffsetSec: z.number(),
@@ -64,7 +65,7 @@ export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   return (
     <AbsoluteFill style={{backgroundColor: '#06090f'}}>
       <Sequence durationInFrames={hookFrames}>
-        <VHook hook={props.hook} accentColor={props.accentColor} />
+        <VHook hook={props.hook} accentColor={props.accentColor} brand={props.brand} />
       </Sequence>
       <Sequence from={hookFrames} durationInFrames={posterFrames}>
         <VPoster {...props} />
@@ -92,7 +93,8 @@ export const PodcastVertical: React.FC<PodcastProps> = (props) => {
 const VHook: React.FC<{
   hook: PodcastProps['hook'];
   accentColor: string;
-}> = ({hook, accentColor}) => {
+  brand: string;
+}> = ({hook, accentColor, brand}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
 
@@ -147,7 +149,7 @@ const VHook: React.FC<{
           textTransform: 'uppercase',
         }}
       >
-        PODCAST.CAB
+        {brand}
       </div>
       <div
         style={{
@@ -195,7 +197,7 @@ const VHook: React.FC<{
 };
 
 /* ============================================================ */
-const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor}) => (
+const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor, brand}) => (
   <AbsoluteFill style={{backgroundColor: '#06090f'}}>
     <Img src={coverSrc} style={{width: '100%', height: '100%', objectFit: 'cover', opacity: 0.78}} />
     <AbsoluteFill
@@ -220,7 +222,7 @@ const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor
       }}
     >
       <span style={{color: '#f87171'}}>● REC</span>
-      <span style={{color: accentColor, fontWeight: 700}}>PODCAST.CAB</span>
+      <span style={{color: accentColor, fontWeight: 700, textTransform: 'uppercase'}}>{brand}</span>
     </div>
     <AbsoluteFill
       style={{
@@ -240,7 +242,7 @@ const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor
           fontFamily: '"SF Mono", Menlo, monospace',
         }}
       >
-        podcast.cab
+        {brand}
       </div>
       <div
         style={{
@@ -280,7 +282,7 @@ const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor
 );
 
 /* ============================================================ */
-const VIntro: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor}) => {
+const VIntro: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor, brand}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
   const titleStart = Math.max(0, durationInFrames - 45);
@@ -327,7 +329,7 @@ const VIntro: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor}
             fontFamily: '"SF Mono", Menlo, monospace',
           }}
         >
-          podcast.cab
+          {brand}
         </div>
         <div
           style={{
@@ -376,6 +378,7 @@ const VMain: React.FC<PodcastProps> = (props) => {
     coverSrc,
     accentColor,
     title,
+    brand,
     speakers,
     subtitleOffsetSec,
     subtitleTimeScale,
@@ -410,7 +413,7 @@ const VMain: React.FC<PodcastProps> = (props) => {
 
       <VCoverBackground coverSrc={coverSrc} />
       <VTopProgress audioDurationSec={audioDurationSec} accentColor={accentColor} chapters={chapters} />
-      <VBrandBar accentColor={accentColor} title={title} />
+      <VBrandBar accentColor={accentColor} title={title} brand={brand} />
       <VPersistentChapterLabel chapters={chapters} accentColor={accentColor} />
       <VWaveform audioSrc={audioSrc} accentColor={accentColor} />
 
@@ -565,7 +568,11 @@ const VTopProgress: React.FC<{
   );
 };
 
-const VBrandBar: React.FC<{accentColor: string; title: string}> = ({accentColor, title}) => (
+const VBrandBar: React.FC<{accentColor: string; title: string; brand: string}> = ({
+  accentColor,
+  title,
+  brand,
+}) => (
   <>
     <div
       style={{
@@ -583,7 +590,7 @@ const VBrandBar: React.FC<{accentColor: string; title: string}> = ({accentColor,
       }}
     >
       <span style={{color: '#f87171'}}>● REC</span>
-      <span style={{color: accentColor, fontWeight: 700}}>PODCAST.CAB</span>
+      <span style={{color: accentColor, fontWeight: 700}}>{brand}</span>
     </div>
     <div
       style={{
