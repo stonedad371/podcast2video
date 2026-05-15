@@ -33,7 +33,9 @@ export type Job = {
   render?: {
     status: 'queued' | 'bundling' | 'rendering' | 'done' | 'failed';
     progress: number;
-    stage?: 'bundling' | 'rendering';
+    stage?: 'images' | 'bundling' | 'rendering';
+    imagesDone?: number;
+    imagesTotal?: number;
     startedAt: number;
     completedAt?: number;
     error?: string;

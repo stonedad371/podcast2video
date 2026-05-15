@@ -94,16 +94,32 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
       // 先生成所有章节图：缺图时 Chromium 会死循环 retry 卡住整个 render，
       // 所以这一步**必须**成功（或者整个 render 直接失败给用户明确反馈）。
       const keys = await loadKeys();
-      if (keys.minimax && job.config.chapters.length > 0) {
+      const chapterCount = job.config.chapters.length;
+      if (keys.minimax && chapterCount > 0) {
         await updateJob(id, {
           render: {
             status: 'bundling',
-            stage: 'bundling',
+            stage: 'images',
             progress: 0,
             startedAt: Date.now(),
           },
         });
-        await ensureChapterImages({job, apiKey: keys.minimax});
+        await ensureChapterImages({
+          job,
+          apiKey: keys.minimax,
+          onProgress: async (done, total) => {
+            await updateJob(id, {
+              render: {
+                status: 'bundling',
+                stage: 'images',
+                progress: done / total,
+                imagesDone: done,
+                imagesTotal: total,
+                startedAt: Date.now(),
+              },
+            });
+          },
+        });
       }
 
       await updateJob(id, {

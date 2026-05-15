@@ -5,7 +5,9 @@ import {useEffect, useState} from 'react';
 type RenderState = {
   status: 'queued' | 'bundling' | 'rendering' | 'done' | 'failed';
   progress: number;
-  stage?: 'bundling' | 'rendering';
+  stage?: 'images' | 'bundling' | 'rendering';
+  imagesDone?: number;
+  imagesTotal?: number;
   startedAt: number;
   completedAt?: number;
   error?: string;
@@ -160,12 +162,18 @@ export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boole
 
 function ProgressView({render}: {render: RenderState}) {
   const pct = Math.round(render.progress * 100);
-  const label =
-    render.status === 'queued'
-      ? '排队中…'
-      : render.status === 'bundling'
-        ? '打包前端代码…'
-        : `渲染中 ${pct}%`;
+  let label: string;
+  if (render.status === 'queued') {
+    label = '排队中…';
+  } else if (render.stage === 'images') {
+    const done = render.imagesDone ?? 0;
+    const total = render.imagesTotal ?? 0;
+    label = total > 0 ? `生成章节图 ${done} / ${total}…` : '生成章节图…';
+  } else if (render.status === 'bundling') {
+    label = '打包前端代码…';
+  } else {
+    label = `渲染中 ${pct}%`;
+  }
   const elapsed = ((Date.now() - render.startedAt) / 1000).toFixed(0);
 
   return (
