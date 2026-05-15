@@ -31,9 +31,14 @@ export async function POST(_req: NextRequest, {params}: {params: Promise<{id: st
       subtitle: job.config.subtitle,
     });
 
+    // 仅当用户没填标题时，用 LLM 自动产的标题兜底
+    const finalTitle = job.config.title?.trim() ? job.config.title : result.title;
+
     const updated = await updateJob(id, {
       config: {
         ...job.config,
+        title: finalTitle,
+        hook: result.hook,
         chapters: result.chapters,
         quotes: result.quotes,
       },

@@ -15,8 +15,11 @@ const DEFAULT_PROPS: PodcastProps = {
   },
   subtitleOffsetSec: 0,
   subtitleTimeScale: 1,
+  hook: {number: '8 年', text: '他亏了 8 年，才搞懂这一件事'},
   chapters: [{atSec: 0, title: '第一章'}],
+  chapterImageSrcs: [],
   quotes: [],
+  hookDurationSec: 3,
   posterDurationSec: 1,
   introDurationSec: 5,
   outroDurationSec: 5,
@@ -36,6 +39,7 @@ export const Root: React.FC = () => {
       defaultProps={DEFAULT_PROPS}
       calculateMetadata={({props}) => {
         const total =
+          props.hookDurationSec +
           props.posterDurationSec +
           props.introDurationSec +
           props.audioDurationSec +

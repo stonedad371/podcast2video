@@ -3,6 +3,8 @@ import path from 'node:path';
 import {promises as fs} from 'node:fs';
 import {getJob, updateJob, OUTPUT_DIR, ensureDirs} from '@/lib/jobs';
 import {renderVideo} from '@/lib/render';
+import {ensureChapterImages} from '@/lib/chapter-images';
+import {loadKeys} from '@/lib/config';
 import type {PodcastProps} from '@/remotion/Composition';
 
 export const runtime = 'nodejs';
@@ -32,8 +34,13 @@ function buildProps(job: Awaited<ReturnType<typeof getJob>>, baseUrl: string): P
     speakers,
     subtitleOffsetSec: 0,
     subtitleTimeScale: job.computed.subtitleTimeScale,
+    hook: job.config.hook ?? {number: '', text: ''},
     chapters: job.config.chapters,
     quotes: job.config.quotes,
+    chapterImageSrcs: job.config.chapters.map(
+      (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
+    ),
+    hookDurationSec: job.config.hook ? 3 : 0,
     posterDurationSec: 1.0,
     introDurationSec: 5,
     outroDurationSec: 5,
@@ -78,6 +85,17 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   // 后台跑（不阻塞响应）
   void (async () => {
     try {
+      // 先按需生成章节图（已存在则跳过）。失败不阻塞渲染，章节图会在 Composition 里
+      // 以 404 fallback 显示底色 + 章节标题。
+      try {
+        const keys = await loadKeys();
+        if (keys.minimax && job.config.chapters.length > 0) {
+          await ensureChapterImages({job, apiKey: keys.minimax});
+        }
+      } catch (err) {
+        console.error('[chapter-images] generation failed (non-fatal):', err);
+      }
+
       await updateJob(id, {
         render: {
           status: 'bundling',

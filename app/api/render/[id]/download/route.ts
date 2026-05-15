@@ -17,7 +17,9 @@ export async function GET(_req: NextRequest, {params}: {params: Promise<{id: str
       headers: {
         'Content-Type': 'video/mp4',
         'Content-Length': String(stat.size),
-        'Content-Disposition': `attachment; filename="${id}.mp4"`,
+        // inline 让 <video> 元素能直接播放；<a download> 自身的属性仍会触发下载行为
+        'Content-Disposition': `inline; filename="${id}.mp4"`,
+        'Accept-Ranges': 'bytes',
       },
     });
   } catch {

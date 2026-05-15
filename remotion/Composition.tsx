@@ -23,6 +23,7 @@ const speakerStyleSchema = z.object({
 });
 const chapterSchema = z.object({atSec: z.number(), title: z.string()});
 const quoteSchema = z.object({fromSec: z.number(), durationSec: z.number(), text: z.string()});
+const hookSchema = z.object({number: z.string(), text: z.string()});
 
 export const podcastSchema = z.object({
   audioSrc: z.string(),
@@ -34,8 +35,11 @@ export const podcastSchema = z.object({
   speakers: z.record(z.string(), speakerStyleSchema),
   subtitleOffsetSec: z.number(),
   subtitleTimeScale: z.number(),
+  hook: hookSchema,
   chapters: z.array(chapterSchema),
+  chapterImageSrcs: z.array(z.string()),
   quotes: z.array(quoteSchema),
+  hookDurationSec: z.number(),
   posterDurationSec: z.number(),
   introDurationSec: z.number(),
   outroDurationSec: z.number(),
@@ -46,10 +50,12 @@ export type SpeakerStyle = z.infer<typeof speakerStyleSchema>;
 export type PodcastProps = z.infer<typeof podcastSchema>;
 
 const CHAPTER_BANNER_SEC = 3.5;
+const CHAPTER_IMAGE_CARD_SEC = 1.5;
 const secToFrames = (sec: number, fps: number) => Math.round(sec * fps);
 
 export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   const {fps} = useVideoConfig();
+  const hookFrames = secToFrames(props.hookDurationSec, fps);
   const posterFrames = secToFrames(props.posterDurationSec, fps);
   const introFrames = secToFrames(props.introDurationSec, fps);
   const audioFrames = secToFrames(props.audioDurationSec, fps);
@@ -57,18 +63,133 @@ export const PodcastVertical: React.FC<PodcastProps> = (props) => {
 
   return (
     <AbsoluteFill style={{backgroundColor: '#06090f'}}>
-      <Sequence durationInFrames={posterFrames}>
+      <Sequence durationInFrames={hookFrames}>
+        <VHook hook={props.hook} accentColor={props.accentColor} />
+      </Sequence>
+      <Sequence from={hookFrames} durationInFrames={posterFrames}>
         <VPoster {...props} />
       </Sequence>
-      <Sequence from={posterFrames} durationInFrames={introFrames}>
+      <Sequence from={hookFrames + posterFrames} durationInFrames={introFrames}>
         <VIntro {...props} />
       </Sequence>
-      <Sequence from={posterFrames + introFrames} durationInFrames={audioFrames}>
+      <Sequence
+        from={hookFrames + posterFrames + introFrames}
+        durationInFrames={audioFrames}
+      >
         <VMain {...props} />
       </Sequence>
-      <Sequence from={posterFrames + introFrames + audioFrames} durationInFrames={outroFrames}>
+      <Sequence
+        from={hookFrames + posterFrames + introFrames + audioFrames}
+        durationInFrames={outroFrames}
+      >
         <VOutro {...props} />
       </Sequence>
+    </AbsoluteFill>
+  );
+};
+
+/* ============================================================ */
+const VHook: React.FC<{
+  hook: PodcastProps['hook'];
+  accentColor: string;
+}> = ({hook, accentColor}) => {
+  const frame = useCurrentFrame();
+  const {fps, durationInFrames} = useVideoConfig();
+
+  // 数字弹入
+  const numberSpring = spring({
+    frame,
+    fps,
+    config: {damping: 12, stiffness: 180, mass: 0.6},
+  });
+  const numberScale = interpolate(numberSpring, [0, 1], [1.3, 1.0]);
+  const numberOpacity = interpolate(frame, [0, 8], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // 文本从下淡入
+  const textOpacity = interpolate(frame, [10, 22], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const textY = interpolate(frame, [10, 22], [40, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // 整体后期淡出，过渡到 Poster
+  const overallOpacity = interpolate(
+    frame,
+    [durationInFrames - 12, durationInFrames],
+    [1, 0],
+    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+  );
+
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: '#06090f',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '0 60px',
+        fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
+        opacity: overallOpacity,
+      }}
+    >
+      <div
+        style={{
+          color: '#6b7280',
+          fontSize: 26,
+          letterSpacing: 8,
+          fontFamily: '"SF Mono", Menlo, monospace',
+          marginBottom: 48,
+          textTransform: 'uppercase',
+        }}
+      >
+        PODCAST.CAB
+      </div>
+      <div
+        style={{
+          color: accentColor,
+          fontSize: 280,
+          fontWeight: 900,
+          lineHeight: 1,
+          textAlign: 'center',
+          letterSpacing: -4,
+          opacity: numberOpacity,
+          transform: `scale(${numberScale})`,
+          textShadow: `0 0 80px ${accentColor}66, 0 8px 40px rgba(0,0,0,0.6)`,
+          marginBottom: 56,
+        }}
+      >
+        {hook.number}
+      </div>
+      <div
+        style={{
+          color: '#fff',
+          fontSize: 64,
+          fontWeight: 700,
+          lineHeight: 1.3,
+          textAlign: 'center',
+          maxWidth: 900,
+          opacity: textOpacity,
+          transform: `translateY(${textY}px)`,
+          textShadow: '0 4px 20px rgba(0,0,0,0.7)',
+        }}
+      >
+        {hook.text}
+      </div>
+      <div
+        style={{
+          width: 100,
+          height: 4,
+          backgroundColor: accentColor,
+          marginTop: 40,
+          opacity: textOpacity,
+          boxShadow: `0 0 24px ${accentColor}`,
+        }}
+      />
     </AbsoluteFill>
   );
 };
@@ -259,6 +380,7 @@ const VMain: React.FC<PodcastProps> = (props) => {
     subtitleOffsetSec,
     subtitleTimeScale,
     chapters,
+    chapterImageSrcs,
     quotes,
     audioDurationSec,
   } = props;
@@ -325,6 +447,25 @@ const VMain: React.FC<PodcastProps> = (props) => {
           <VChapterBanner index={i + 1} title={ch.title} accentColor={accentColor} />
         </Sequence>
       ))}
+
+      {chapters.map((ch, i) => {
+        const src = chapterImageSrcs[i];
+        if (!src) return null;
+        return (
+          <Sequence
+            key={`ch-img-${i}`}
+            from={secToFrames(ch.atSec, fps)}
+            durationInFrames={secToFrames(CHAPTER_IMAGE_CARD_SEC, fps)}
+          >
+            <VChapterImageCard
+              index={i + 1}
+              title={ch.title}
+              imageSrc={src}
+              accentColor={accentColor}
+            />
+          </Sequence>
+        );
+      })}
 
       {quotes.map((q, i) => (
         <Sequence
@@ -932,6 +1073,108 @@ const VOutro: React.FC<PodcastProps> = ({title, accentColor, coverSrc}) => {
         >
           《{title}》
         </div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+/* ============================================================ */
+const VChapterImageCard: React.FC<{
+  index: number;
+  title: string;
+  imageSrc: string;
+  accentColor: string;
+}> = ({index, title, imageSrc, accentColor}) => {
+  const frame = useCurrentFrame();
+  const {durationInFrames} = useVideoConfig();
+
+  const opacity = interpolate(
+    frame,
+    [0, 6, durationInFrames - 10, durationInFrames],
+    [0, 1, 1, 0],
+    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+  );
+  const scale = interpolate(frame, [0, durationInFrames], [1.08, 1.0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const titleY = interpolate(frame, [0, 14], [40, 0], {extrapolateRight: 'clamp'});
+  const titleOpacity = interpolate(
+    frame,
+    [4, 14, durationInFrames - 8, durationInFrames],
+    [0, 1, 1, 0],
+    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
+  );
+
+  return (
+    <AbsoluteFill style={{opacity}}>
+      <AbsoluteFill style={{overflow: 'hidden', backgroundColor: '#06090f'}}>
+        <Img
+          src={imageSrc}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: `scale(${scale})`,
+          }}
+        />
+      </AbsoluteFill>
+      <AbsoluteFill
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(6,9,15,0.15) 0%, rgba(6,9,15,0) 45%, rgba(6,9,15,0.55) 75%, rgba(6,9,15,0.95) 100%)',
+        }}
+      />
+      <AbsoluteFill
+        style={{
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingBottom: 360,
+          paddingLeft: 60,
+          paddingRight: 60,
+          fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
+          opacity: titleOpacity,
+          transform: `translateY(${titleY}px)`,
+        }}
+      >
+        <div
+          style={{
+            color: accentColor,
+            fontSize: 26,
+            fontWeight: 700,
+            letterSpacing: 8,
+            fontFamily: '"SF Mono", Menlo, monospace',
+            marginBottom: 18,
+            textShadow: '0 2px 12px rgba(0,0,0,0.8)',
+          }}
+        >
+          CHAPTER {String(index).padStart(2, '0')}
+        </div>
+        <div
+          style={{
+            color: '#fff',
+            fontSize: 72,
+            fontWeight: 800,
+            lineHeight: 1.15,
+            textAlign: 'center',
+            textShadow: '0 4px 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7)',
+            maxWidth: 900,
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            marginTop: 28,
+            width: 80,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: accentColor,
+            boxShadow: `0 0 16px ${accentColor}`,
+          }}
+        />
       </AbsoluteFill>
     </AbsoluteFill>
   );

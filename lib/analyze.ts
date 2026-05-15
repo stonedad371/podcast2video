@@ -3,14 +3,33 @@ import type {Chapter, Quote} from './jobs';
 import {chatCompletion, extractToolArgs} from './minimax-chat';
 
 export type AnalysisResult = {
+  title: string;
+  hook: {number: string; text: string};
   chapters: Chapter[];
   quotes: Quote[];
 };
 
 const SYSTEM_PROMPT = `你是一位资深的播客视频编辑。给你一份带时间戳的字幕（SRT 解析后的 cues），任务是：
 
-1. 把整集播客切成 4 到 6 个章节，每个章节给一个简短有力的中文小标题（10 字以内最好）。第一个章节必须从 0 秒开始。章节边界要选在内容/话题切换的自然点。
-2. 挑出 3 到 5 句话作为金句（适合在视频中放大显示的情绪点 / 观点 / 戏剧转折）。每句金句要：
+1. 给整集播客起一个**有信息量的中文短标题**（8-16 字），不要泛泛而谈，要点出核心冲突 / 反差 / 关键人物 / 关键数字。
+   - 反例（不要）："交易者访谈"、"播客分享"、"投资经验谈"
+   - 正例：'8 年亏货到稳定盈利：交易者的至暗与翻盘'、'被裁那天，我建了月入 10 万的副业'
+   - 如果用户已经给了播客标题，可以润色或保留，但要保证最终标题**有信息量**。
+2. 从内容里提取**片头钩子**——观众前 3 秒决定是否继续看，钩子要让人挪不开眼：
+   - number: 一个抓眼球的数字或关键短语（最多 6 字符），如 "8 年"、"-95%"、"3 次"、"10 万"。如果内容里没合适数字，用一个反差短词如 "全亏" / "翻盘" / "至暗"
+   - text: 一句完整的钩子陈述（10-20 字），围绕 number 展开，制造好奇/反差/紧迫感
+   - 例子：number="8 年" text="他亏了 8 年，才搞懂这一件事"；number="-95%" text="账户跌 95%，他没割肉"
+3. 把整集播客切成 4 到 6 个章节，每个章节给：
+   - title：简短有力的中文小标题（10 字以内最好）
+   - imagePrompt：一句**英文** AI 绘图提示词，描述与本章节内容呼应的画面。要求：
+     * cinematic dark editorial illustration 风格
+     * NO text, NO people（避免人脸糊掉）
+     * 抽象象征手法（如蜡烛/山峰/书本/K线/迷雾 等隐喻物体）
+     * deep navy + crimson + gold 配色基调
+     * 9:16 vertical composition
+   - 例子（章节"至暗时刻"）：'A single dying candle on dark velvet, deep navy background, crimson reflections, cinematic dark editorial illustration, moody dramatic lighting, vertical 9:16, no text, no people'
+   第一个章节必须从 0 秒开始。章节边界要选在内容/话题切换的自然点。
+4. 挑出 3 到 5 句话作为金句（适合在视频中放大显示的情绪点 / 观点 / 戏剧转折）。每句金句要：
    - 内容完整（如果一句话被 SRT 切成多条 cue，要合并成完整意思）
    - 起始时间用第一条 cue 的 startSec，持续时间 = (最后一条 cue 的 endSec - 第一条 cue 的 startSec)
    - 文本里如果是两个分句，用 \\n 换行
@@ -58,6 +77,19 @@ ${transcript}`;
           parameters: {
             type: 'object',
             properties: {
+              title: {
+                type: 'string',
+                description: '8-16 字的中文播客视频标题，要有信息量、点出核心冲突或关键事实',
+              },
+              hook: {
+                type: 'object',
+                description: '片头数字钩子',
+                properties: {
+                  number: {type: 'string', description: '数字或关键短语（最多 6 字符）'},
+                  text: {type: 'string', description: '钩子陈述（10-20 字）'},
+                },
+                required: ['number', 'text'],
+              },
               chapters: {
                 type: 'array',
                 minItems: 4,
@@ -67,8 +99,12 @@ ${transcript}`;
                   properties: {
                     atSec: {type: 'number', description: '章节起点（秒）。第一个必须 0。'},
                     title: {type: 'string', description: '章节中文小标题（10 字以内）'},
+                    imagePrompt: {
+                      type: 'string',
+                      description: '英文 AI 绘图提示词，9:16 vertical 暗色编辑插画风、抽象象征、无文字无人物',
+                    },
                   },
-                  required: ['atSec', 'title'],
+                  required: ['atSec', 'title', 'imagePrompt'],
                 },
               },
               quotes: {
@@ -86,7 +122,7 @@ ${transcript}`;
                 },
               },
             },
-            required: ['chapters', 'quotes'],
+            required: ['title', 'hook', 'chapters', 'quotes'],
           },
         },
       },

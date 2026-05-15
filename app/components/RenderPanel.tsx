@@ -206,6 +206,7 @@ function ProgressView({render}: {render: RenderState}) {
 
 function DoneView({jobId, sizeBytes}: {jobId: string; sizeBytes: number}) {
   const sizeMB = (sizeBytes / 1024 / 1024).toFixed(1);
+  const videoUrl = `/api/render/${jobId}/download`;
   return (
     <div
       style={{
@@ -214,29 +215,46 @@ function DoneView({jobId, sizeBytes}: {jobId: string; sizeBytes: number}) {
         border: '1px solid rgba(74,222,128,0.3)',
         borderRadius: 12,
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: 'column',
+        gap: 16,
       }}
     >
-      <div>
-        <div style={{color: '#a7f3d0', fontSize: 16, fontWeight: 700}}>✓ 生成完毕</div>
-        <div style={{color: '#9ca3af', fontSize: 13, marginTop: 4}}>视频大小 {sizeMB} MB</div>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div>
+          <div style={{color: '#a7f3d0', fontSize: 16, fontWeight: 700}}>✓ 生成完毕</div>
+          <div style={{color: '#9ca3af', fontSize: 13, marginTop: 4}}>视频大小 {sizeMB} MB</div>
+        </div>
+        <a
+          href={videoUrl}
+          download={`${jobId}.mp4`}
+          style={{
+            padding: '10px 20px',
+            background: '#4ade80',
+            color: '#0b0f17',
+            borderRadius: 10,
+            textDecoration: 'none',
+            fontWeight: 700,
+            letterSpacing: 1,
+            fontSize: 14,
+          }}
+        >
+          ⬇ 下载 MP4
+        </a>
       </div>
-      <a
-        href={`/api/render/${jobId}/download`}
-        download={`${jobId}.mp4`}
+
+      <video
+        controls
+        src={videoUrl}
         style={{
-          padding: '12px 24px',
-          background: '#4ade80',
-          color: '#0b0f17',
-          borderRadius: 10,
-          textDecoration: 'none',
-          fontWeight: 700,
-          letterSpacing: 1,
+          width: '100%',
+          maxWidth: 360,
+          aspectRatio: '9 / 16',
+          alignSelf: 'center',
+          borderRadius: 12,
+          background: '#0b0f17',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
         }}
-      >
-        ⬇ 下载 MP4
-      </a>
+      />
     </div>
   );
 }

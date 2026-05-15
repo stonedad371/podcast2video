@@ -11,15 +11,13 @@ Abstract, evocative, NO text and NO people. Use moody dramatic lighting, deep na
 Vertical 9:16 aspect ratio.
 `.trim();
 
-export async function generateCover(opts: {
+// 通用 MiniMax 9:16 生图函数：传任意 prompt 出一张 jpg 到 outPath
+export async function generateImage(opts: {
   apiKey: string;
-  title: string;
-  subtitle?: string;
+  prompt: string;
   outPath: string;
-}): Promise<{prompt: string; sizeBytes: number}> {
-  const {apiKey, title, subtitle, outPath} = opts;
-  const prompt = COVER_PROMPT_TEMPLATE(title, subtitle);
-
+}): Promise<{sizeBytes: number}> {
+  const {apiKey, prompt, outPath} = opts;
   const res = await fetch(MINIMAX_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -32,7 +30,6 @@ export async function generateCover(opts: {
       aspect_ratio: '9:16',
       n: 1,
       prompt_optimizer: true,
-      // 直接拿 base64 避开 cdn.minimax.chat 二次下载（容器内 DNS 不通过它）
       response_format: 'base64',
     }),
   });
@@ -54,6 +51,17 @@ export async function generateCover(opts: {
   const buf = Buffer.from(b64, 'base64');
   await fs.mkdir(path.dirname(outPath), {recursive: true});
   await fs.writeFile(outPath, buf);
+  return {sizeBytes: buf.length};
+}
 
-  return {prompt, sizeBytes: buf.length};
+export async function generateCover(opts: {
+  apiKey: string;
+  title: string;
+  subtitle?: string;
+  outPath: string;
+}): Promise<{prompt: string; sizeBytes: number}> {
+  const {apiKey, title, subtitle, outPath} = opts;
+  const prompt = COVER_PROMPT_TEMPLATE(title, subtitle);
+  const {sizeBytes} = await generateImage({apiKey, prompt, outPath});
+  return {prompt, sizeBytes};
 }
