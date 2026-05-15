@@ -5,16 +5,11 @@ import {PodcastVertical, type PodcastProps} from '@/remotion/Composition';
 
 export function Preview({props}: {props: PodcastProps}) {
   const fps = 30;
+  // Hook/Intro 已简化掉，时间轴只有 Poster + Main + Outro
   const totalSec =
-    props.hookDurationSec +
-    props.posterDurationSec +
-    props.introDurationSec +
-    props.audioDurationSec +
-    props.outroDurationSec;
+    props.posterDurationSec + props.audioDurationSec + props.outroDurationSec;
   const durationInFrames = Math.max(1, Math.ceil(totalSec * fps));
-  // 让 Player 打开就停在 Poster 那帧（首帧封面合成），用户能直接看到"视频长这样"，
-  // 而不是 Hook 阶段的纯黑数字。点播放/拖动可以看到完整开头。
-  const posterStartFrame = Math.max(0, Math.floor(props.hookDurationSec * fps));
+  const posterStartFrame = 0;
 
   return (
     <div

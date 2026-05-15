@@ -45,10 +45,10 @@ function buildProps(
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
-    hookDurationSec: job.config.hook ? 3 : 0,
-    posterDurationSec: 1.0,
-    introDurationSec: 5,
-    outroDurationSec: 5,
+    hookDurationSec: 0,
+    posterDurationSec: 2.0,
+    introDurationSec: 0,
+    outroDurationSec: 3,
     audioDurationSec: job.audio.durationSec,
   };
 }

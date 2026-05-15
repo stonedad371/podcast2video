@@ -56,33 +56,21 @@ const secToFrames = (sec: number, fps: number) => Math.round(sec * fps);
 
 export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   const {fps} = useVideoConfig();
-  const hookFrames = secToFrames(props.hookDurationSec, fps);
+  // Hook 和 Intro 已简化掉——视频开头只保留 Poster 一帧封面。
+  // hookDurationSec / introDurationSec 仍在 schema 中（向后兼容），但渲染时忽略。
   const posterFrames = secToFrames(props.posterDurationSec, fps);
-  const introFrames = secToFrames(props.introDurationSec, fps);
   const audioFrames = secToFrames(props.audioDurationSec, fps);
   const outroFrames = secToFrames(props.outroDurationSec, fps);
 
   return (
     <AbsoluteFill style={{backgroundColor: '#06090f'}}>
-      <Sequence durationInFrames={hookFrames}>
-        <VHook hook={props.hook} accentColor={props.accentColor} brand={props.brand} />
-      </Sequence>
-      <Sequence from={hookFrames} durationInFrames={posterFrames}>
+      <Sequence durationInFrames={posterFrames}>
         <VPoster {...props} />
       </Sequence>
-      <Sequence from={hookFrames + posterFrames} durationInFrames={introFrames}>
-        <VIntro {...props} />
-      </Sequence>
-      <Sequence
-        from={hookFrames + posterFrames + introFrames}
-        durationInFrames={audioFrames}
-      >
+      <Sequence from={posterFrames} durationInFrames={audioFrames}>
         <VMain {...props} />
       </Sequence>
-      <Sequence
-        from={hookFrames + posterFrames + introFrames + audioFrames}
-        durationInFrames={outroFrames}
-      >
+      <Sequence from={posterFrames + audioFrames} durationInFrames={outroFrames}>
         <VOutro {...props} />
       </Sequence>
     </AbsoluteFill>

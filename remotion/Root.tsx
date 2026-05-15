@@ -39,12 +39,9 @@ export const Root: React.FC = () => {
       durationInFrames={2100}
       defaultProps={DEFAULT_PROPS}
       calculateMetadata={({props}) => {
+        // 视频时间轴：Poster + Main(audio) + Outro。Hook/Intro 已简化掉。
         const total =
-          props.hookDurationSec +
-          props.posterDurationSec +
-          props.introDurationSec +
-          props.audioDurationSec +
-          props.outroDurationSec;
+          props.posterDurationSec + props.audioDurationSec + props.outroDurationSec;
         return {durationInFrames: Math.ceil(total * 30)};
       }}
     />
