@@ -104,11 +104,18 @@ export async function getJob(id: string): Promise<Job | null> {
   return all[id] ?? null;
 }
 
-export async function updateJob(id: string, patch: Partial<Job>): Promise<Job | null> {
+export async function updateJob(
+  id: string,
+  patch: Partial<Job> | ((job: Job) => Partial<Job> | null),
+): Promise<Job | null> {
   return serialize(async () => {
     const all = await readAll();
     if (!all[id]) return null;
-    all[id] = {...all[id], ...patch};
+    // 函数形式让 guard 在 serialize 内基于最新磁盘状态做判断——避免 fire-and-forget
+    // onProgress 拿到 stale job 后覆盖已 done 状态。
+    const computed = typeof patch === 'function' ? patch(all[id]) : patch;
+    if (computed === null) return all[id];
+    all[id] = {...all[id], ...computed};
     await writeAll(all);
     return all[id];
   });

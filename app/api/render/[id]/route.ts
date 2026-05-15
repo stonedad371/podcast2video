@@ -134,18 +134,18 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
         inputProps,
         outputPath,
         onProgress: async (stage, progress) => {
-          const j = await getJob(id);
-          if (!j) return;
-          // Remotion 不 await onProgress——最后一次 progress=1 回调可能晚于下面 status='done'
-          // 那一步执行，把 status 踩回 'rendering'。这里 guard：已经 done/failed 就不再写。
-          if (j.render?.status === 'done' || j.render?.status === 'failed') return;
-          await updateJob(id, {
-            render: {
-              ...(j.render ?? {startedAt: Date.now(), status: 'rendering' as const, progress: 0}),
-              status: stage === 'bundling' ? 'bundling' : 'rendering',
-              stage,
-              progress,
-            },
+          // Remotion 不 await onProgress；最后一次 progress=1 回调可能晚于下面 status='done'
+          // 那一步执行。guard 必须在 serialize 内基于最新磁盘状态做，否则 stale 读会失效。
+          await updateJob(id, (j) => {
+            if (j.render?.status === 'done' || j.render?.status === 'failed') return null;
+            return {
+              render: {
+                ...(j.render ?? {startedAt: Date.now(), status: 'rendering' as const, progress: 0}),
+                status: stage === 'bundling' ? 'bundling' : 'rendering',
+                stage,
+                progress,
+              },
+            };
           });
         },
       });
