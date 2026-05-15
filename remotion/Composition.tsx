@@ -684,7 +684,7 @@ const VPersistentChapterLabel: React.FC<{
     <div
       style={{
         position: 'absolute',
-        top: 290,
+        top: 360,
         left: 60,
         right: 60,
         display: 'flex',
@@ -730,15 +730,19 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
   const {fps} = useVideoConfig();
   const audioData = useAudioData(audioSrc);
   const bars = useMemo(() => {
+    // 32 个频段：低频→高频。直接画的话，低频集中左侧、高频在右，看着像"只有左边在动"。
+    // 取前 16 个频段做镜像（mirror[15..0] + mirror[0..15]），让低频聚在中央、高频对称到两侧，
+    // 视觉上从中央向外发散，对称居中震动。
     if (!audioData) return new Array(32).fill(0.1);
     const samples = nextPow2(32);
-    return visualizeAudio({
+    const spectrum = visualizeAudio({
       fps,
       frame,
       audioData,
       numberOfSamples: samples,
       smoothing: true,
-    }).slice(0, 32);
+    }).slice(0, 16);
+    return [...spectrum.slice().reverse(), ...spectrum];
   }, [audioData, fps, frame]);
   return (
     <div
@@ -820,7 +824,7 @@ const VSubtitleLine: React.FC<{
     <div
       style={{
         position: 'absolute',
-        top: 1100,
+        top: 900,
         left: 60,
         right: 60,
         height: 540,

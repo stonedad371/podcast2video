@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {Fragment, useEffect, useState} from 'react';
 import {UploadZone, type UploadResult} from './components/UploadZone';
 import {JobSummary} from './components/JobSummary';
 import {SettingsModal} from './components/SettingsModal';
@@ -20,6 +20,13 @@ export default function Home() {
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [generatingCover, setGeneratingCover] = useState(false);
+  const [renderState, setRenderState] = useState<{
+    status: 'queued' | 'bundling' | 'rendering' | 'done' | 'failed';
+    stage?: 'images' | 'bundling' | 'rendering';
+    progress: number;
+    imagesDone?: number;
+    imagesTotal?: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refreshConfig = () =>
@@ -30,6 +37,30 @@ export default function Home() {
   useEffect(() => {
     refreshConfig();
   }, []);
+
+  // 轮询 render 状态供 PipelineProgress 用（RenderPanel 自己也独立轮，互不影响）
+  useEffect(() => {
+    if (!job) {
+      setRenderState(null);
+      return;
+    }
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const data = await fetch(`/api/render/${job.id}/status`).then((r) => r.json());
+        if (stopped) return;
+        setRenderState(data.render ?? null);
+      } catch {
+        // 忽略：下次轮询再试
+      }
+    };
+    tick();
+    const t = setInterval(tick, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [job]);
 
   // 上传完成后自动分析 + 生封面（基于 key 配置）
   useEffect(() => {
@@ -222,6 +253,18 @@ export default function Home() {
         </>
       ) : (
         <div style={{width: '100%', maxWidth: 960, display: 'flex', flexDirection: 'column', gap: 24}}>
+          <PipelineProgress
+            hasJob={!!job}
+            hasKey={config?.minimax.configured ?? false}
+            analyzing={analyzing}
+            analyzeDone={
+              !!fullJob?.config?.chapters && fullJob.config.chapters.length > 0
+            }
+            generatingCover={generatingCover}
+            coverDone={!!fullJob?.cover}
+            render={renderState}
+          />
+
           <JobSummary job={job} hasKey={config?.minimax.configured ?? false} />
 
           <AnalysisProgress
@@ -530,6 +573,170 @@ function ChaptersAndQuotes({job}: {job: FullJob}) {
           <div style={{color: '#6b7280', fontSize: 13}}>暂无金句</div>
         )}
       </Panel>
+    </div>
+  );
+}
+
+type StepStatus = 'pending' | 'active' | 'done' | 'failed';
+
+function PipelineProgress({
+  hasJob,
+  hasKey,
+  analyzing,
+  analyzeDone,
+  generatingCover,
+  coverDone,
+  render,
+}: {
+  hasJob: boolean;
+  hasKey: boolean;
+  analyzing: boolean;
+  analyzeDone: boolean;
+  generatingCover: boolean;
+  coverDone: boolean;
+  render: {
+    status: 'queued' | 'bundling' | 'rendering' | 'done' | 'failed';
+    stage?: 'images' | 'bundling' | 'rendering';
+    progress: number;
+    imagesDone?: number;
+    imagesTotal?: number;
+  } | null;
+}) {
+  const uploadStatus: StepStatus = hasJob ? 'done' : 'active';
+  const analyzeStatus: StepStatus = !hasJob
+    ? 'pending'
+    : !hasKey
+      ? 'pending'
+      : analyzing
+        ? 'active'
+        : analyzeDone
+          ? 'done'
+          : 'pending';
+  const coverStatus: StepStatus = !analyzeDone
+    ? 'pending'
+    : generatingCover
+      ? 'active'
+      : coverDone
+        ? 'done'
+        : 'pending';
+
+  let renderStatus: StepStatus = 'pending';
+  let renderLabel = '渲染视频';
+  if (render) {
+    if (render.status === 'done') {
+      renderStatus = 'done';
+    } else if (render.status === 'failed') {
+      renderStatus = 'failed';
+      renderLabel = '渲染失败';
+    } else {
+      renderStatus = 'active';
+      if (render.stage === 'images' && render.imagesTotal) {
+        renderLabel = `章节图 ${render.imagesDone ?? 0}/${render.imagesTotal}`;
+      } else if (render.stage === 'bundling' || render.status === 'bundling') {
+        renderLabel = '打包代码';
+      } else if (render.stage === 'rendering' || render.status === 'rendering') {
+        renderLabel = `渲染 ${Math.round(render.progress * 100)}%`;
+      }
+    }
+  } else if (coverDone) {
+    renderLabel = '等待触发';
+  }
+
+  const steps = [
+    {label: '上传', status: uploadStatus},
+    {label: '分析', status: analyzeStatus},
+    {label: '封面', status: coverStatus},
+    {label: renderLabel, status: renderStatus},
+  ];
+
+  return (
+    <div
+      style={{
+        padding: '20px 24px',
+        background: 'rgba(255,255,255,0.025)',
+        border: '1px solid #1f2937',
+        borderRadius: 12,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      {steps.map((s, i) => (
+        <Fragment key={s.label}>
+          <StepDot index={i + 1} label={s.label} status={s.status} />
+          {i < steps.length - 1 && (
+            <div
+              style={{
+                flex: 1,
+                height: 2,
+                background:
+                  steps[i].status === 'done'
+                    ? 'linear-gradient(90deg, #4ade80, #22c55e)'
+                    : 'rgba(255,255,255,0.08)',
+                borderRadius: 2,
+              }}
+            />
+          )}
+        </Fragment>
+      ))}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function StepDot({index, label, status}: {index: number; label: string; status: StepStatus}) {
+  const colors = {
+    pending: {bg: 'rgba(255,255,255,0.06)', border: '#374151', fg: '#6b7280'},
+    active: {bg: 'rgba(251,191,36,0.18)', border: '#fbbf24', fg: '#fbbf24'},
+    done: {bg: 'rgba(74,222,128,0.18)', border: '#4ade80', fg: '#a7f3d0'},
+    failed: {bg: 'rgba(239,68,68,0.18)', border: '#f87171', fg: '#fca5a5'},
+  }[status];
+  const symbol = status === 'done' ? '✓' : status === 'failed' ? '✗' : index;
+  return (
+    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0}}>
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          background: colors.bg,
+          border: `2px solid ${colors.border}`,
+          color: colors.fg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 800,
+          fontSize: 14,
+          position: 'relative',
+          flexShrink: 0,
+        }}
+      >
+        {status === 'active' ? (
+          <span
+            style={{
+              width: 18,
+              height: 18,
+              border: '2px solid rgba(251,191,36,0.3)',
+              borderTopColor: '#fbbf24',
+              borderRadius: '50%',
+              animation: 'spin 0.9s linear infinite',
+            }}
+          />
+        ) : (
+          symbol
+        )}
+      </div>
+      <div
+        style={{
+          color: colors.fg,
+          fontSize: 12,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          textAlign: 'center',
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
