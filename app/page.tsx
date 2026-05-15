@@ -233,7 +233,9 @@ export default function Home() {
 
           {fullJob && <ChaptersAndQuotes job={fullJob} />}
 
-          {fullJob?.cover && <CoverPreview jobId={fullJob.id} />}
+          {fullJob?.cover && (
+            <CoverPreview job={fullJob} brand={config?.brand ?? 'podcast.cab'} />
+          )}
 
           {fullJob &&
             (() => {
@@ -532,26 +534,138 @@ function ChaptersAndQuotes({job}: {job: FullJob}) {
   );
 }
 
-function CoverPreview({jobId}: {jobId: string}) {
+function CoverPreview({job, brand}: {job: FullJob; brand: string}) {
+  const accentColor = job.config.accentColor || '#fbbf24';
+  const title = job.config.title || '播客标题';
+  const subtitle = job.config.subtitle || '';
+
+  // 模拟视频第一帧（VPoster 的迷你版本）：1080x1920 → 220x391，等比 ≈ 1:4.9
   return (
-    <Panel title="AI 生成封面">
-      <div style={{display: 'flex', gap: 16, alignItems: 'center'}}>
-        <img
-          src={`/api/cover/${jobId}/image?ts=${Date.now()}`}
-          alt="cover"
+    <Panel title="AI 生成封面（视频第一帧预览）">
+      <div style={{display: 'flex', gap: 20, alignItems: 'flex-start'}}>
+        <div
           style={{
-            width: 180,
-            height: 320,
-            objectFit: 'cover',
+            position: 'relative',
+            width: 220,
+            height: 391,
             borderRadius: 12,
+            overflow: 'hidden',
             border: '1px solid #374151',
+            background: '#06090f',
+            flexShrink: 0,
           }}
-        />
+        >
+          <img
+            src={`/api/cover/${job.id}/image?ts=${Date.now()}`}
+            alt="cover"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: 0.85,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'linear-gradient(180deg, rgba(6,9,15,0.4) 0%, rgba(6,9,15,0.15) 35%, rgba(6,9,15,0.55) 65%, rgba(6,9,15,0.95) 100%)',
+            }}
+          />
+          {/* 顶栏 ● REC / brand —— 对应 VPoster top=110 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 22,
+              left: 12,
+              right: 12,
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 7,
+              letterSpacing: 1.5,
+              fontFamily: '"SF Mono", Menlo, monospace',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span style={{color: '#f87171'}}>● REC</span>
+            <span style={{color: accentColor, fontWeight: 700}}>{brand}</span>
+          </div>
+          {/* 中间标题 / 副标题 */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '0 14px',
+              fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
+            }}
+          >
+            <div
+              style={{
+                color: accentColor,
+                fontSize: 8,
+                letterSpacing: 1.5,
+                fontWeight: 800,
+                marginBottom: 8,
+                fontFamily: '"SF Mono", Menlo, monospace',
+              }}
+            >
+              {brand}
+            </div>
+            <div
+              style={{
+                color: '#fff',
+                fontSize: 26,
+                fontWeight: 800,
+                lineHeight: 1.1,
+                textAlign: 'center',
+                textShadow: '0 2px 12px rgba(0,0,0,0.75)',
+                display: '-webkit-box',
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {title}
+            </div>
+            {subtitle && (
+              <div
+                style={{
+                  color: '#e5e7eb',
+                  fontSize: 11,
+                  marginTop: 8,
+                  letterSpacing: 1,
+                  textAlign: 'center',
+                  textShadow: '0 1px 6px rgba(0,0,0,0.7)',
+                }}
+              >
+                {subtitle}
+              </div>
+            )}
+            <div
+              style={{
+                width: 36,
+                height: 2,
+                backgroundColor: accentColor,
+                marginTop: 12,
+                boxShadow: `0 0 8px ${accentColor}`,
+              }}
+            />
+          </div>
+        </div>
         <div style={{flex: 1, color: '#9ca3af', fontSize: 13, lineHeight: 1.6}}>
-          自动按视频标题/副标题生成的 9:16 封面图。Phase 4 渲染时会作为首帧使用。
+          视频第一帧预览：标题 / 副标题 / 品牌都会叠在这张 AI 图上。
           <br />
           <br />
-          下个版本会加上传自定义封面 + 重新生成按钮。
+          想改标题或副标题：在上传时填，或留空让 LLM 自动生成。
+          <br />
+          想改品牌：右上角 ⚙️ 设置。
         </div>
       </div>
     </Panel>
