@@ -299,8 +299,9 @@ type FullJob = {
     title: string;
     subtitle: string;
     accentColor: string;
-    chapters: {atSec: number; title: string}[];
+    chapters: {atSec: number; title: string; imagePrompt?: string}[];
     quotes: {fromSec: number; durationSec: number; text: string}[];
+    hook?: {number: string; text: string};
   };
   cover?: {path: string; sizeBytes: number};
 };
@@ -329,8 +330,13 @@ function buildPreviewProps(job: FullJob): PodcastProps | null {
     speakers,
     subtitleOffsetSec: 0,
     subtitleTimeScale: job.computed.subtitleTimeScale,
+    hook: job.config.hook ?? {number: '', text: ''},
     chapters: job.config.chapters,
+    chapterImageSrcs: job.config.chapters.map(
+      (_, i) => `/api/chapter-images/${job.id}/${i}/image`,
+    ),
     quotes: job.config.quotes,
+    hookDurationSec: job.config.hook ? 3 : 0,
     posterDurationSec: 1.0,
     introDurationSec: 5,
     outroDurationSec: 5,
