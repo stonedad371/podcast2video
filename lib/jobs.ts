@@ -63,9 +63,21 @@ async function readAll(): Promise<Record<string, Job>> {
   }
 }
 
-async function writeAll(data: Record<string, Job>) {
+// 顺序化所有 jobs.json 的读写——并发 updateJob 会在写到一半时被 readAll 撞到读出空文件。
+let writeQueue: Promise<unknown> = Promise.resolve();
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const next = writeQueue.then(fn, fn);
+  writeQueue = next.catch(() => undefined);
+  return next;
+}
+
+async function writeAll(data: Record<string, Job>): Promise<void> {
   await ensureDirs();
-  await fs.writeFile(JOBS_FILE, JSON.stringify(data, null, 2));
+  // 写到临时文件再 rename，rename 在 POSIX 上是原子的；并发读者要么看到旧版本要么看到新版本，
+  // 不会读到半截。
+  const tmp = `${JOBS_FILE}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(data, null, 2));
+  await fs.rename(tmp, JOBS_FILE);
 }
 
 export async function createJob(
@@ -77,10 +89,12 @@ export async function createJob(
     status: 'analyzed',
     ...partial,
   };
-  const all = await readAll();
-  all[job.id] = job;
-  await writeAll(all);
-  return job;
+  return serialize(async () => {
+    const all = await readAll();
+    all[job.id] = job;
+    await writeAll(all);
+    return job;
+  });
 }
 
 export async function getJob(id: string): Promise<Job | null> {
@@ -89,11 +103,13 @@ export async function getJob(id: string): Promise<Job | null> {
 }
 
 export async function updateJob(id: string, patch: Partial<Job>): Promise<Job | null> {
-  const all = await readAll();
-  if (!all[id]) return null;
-  all[id] = {...all[id], ...patch};
-  await writeAll(all);
-  return all[id];
+  return serialize(async () => {
+    const all = await readAll();
+    if (!all[id]) return null;
+    all[id] = {...all[id], ...patch};
+    await writeAll(all);
+    return all[id];
+  });
 }
 
 export async function listJobs(): Promise<Job[]> {
