@@ -46,7 +46,7 @@ function buildProps(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
     hookDurationSec: 0,
-    posterDurationSec: 2.0,
+    posterDurationSec: 1 / 30, // 1 帧 @ 30fps：让平台抓得到首帧封面，肉眼几乎察觉不到停留
     introDurationSec: 0,
     outroDurationSec: 3,
     audioDurationSec: job.audio.durationSec,

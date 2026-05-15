@@ -370,7 +370,7 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     ),
     quotes: job.config.quotes,
     hookDurationSec: 0,
-    posterDurationSec: 2.0,
+    posterDurationSec: 1 / 30,
     introDurationSec: 0,
     outroDurationSec: 3,
     audioDurationSec: job.audio.durationSec,
