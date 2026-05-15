@@ -11,8 +11,8 @@
 ### 2. 下载本项目
 
 ```bash
-git clone https://github.com/<你的用户名>/podcast-video-app.git
-cd podcast-video-app
+git clone git@github.com:stonedad371/podcast2video.git
+cd podcast2video
 ```
 
 或者直接下载 ZIP 解压。
@@ -59,18 +59,18 @@ docker compose down
 
 或在 Docker Desktop 里点停止。
 
-## 状态
+## 功能
 
-🚧 **V1 开发中** —— 当前只有骨架，渲染流程在搭建。
-
-- [x] Next.js 骨架
-- [x] Dockerfile
-- [ ] 上传 + 文件管理
-- [ ] Claude API 自动分析（章节 / 金句）
-- [ ] MiniMax 封面生成
-- [ ] @remotion/player 实时预览
-- [ ] 渲染队列 + 进度
-- [ ] 配置面板（API Key 管理）
+- [x] Next.js Web UI + 拖拽上传
+- [x] Dockerfile + docker-compose（一键启动）
+- [x] 上传音频 + SRT，自动算字幕漂移
+- [x] MiniMax 自动切章节 + 挑金句
+- [x] MiniMax 生 9:16 封面图
+- [x] @remotion/player 浏览器实时预览
+- [x] Remotion 渲染 9:16 mp4（Chromium + ffmpeg）
+- [x] 配置面板（API Key 本地管理，权限 600）
+- [ ] Windows 双击启动脚本（`start.bat`）
+- [ ] 横版 16:9 输出
 
 ## 许可
 
