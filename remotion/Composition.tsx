@@ -411,7 +411,11 @@ const VMain: React.FC<PodcastProps> = (props) => {
         }
       />
 
-      <VCoverBackground coverSrc={coverSrc} />
+      <VCoverBackground
+        coverSrc={coverSrc}
+        chapters={chapters}
+        chapterImageSrcs={chapterImageSrcs}
+      />
       <VTopProgress audioDurationSec={audioDurationSec} accentColor={accentColor} chapters={chapters} />
       <VBrandBar accentColor={accentColor} title={title} brand={brand} />
       <VPersistentChapterLabel chapters={chapters} accentColor={accentColor} />
@@ -485,22 +489,75 @@ const VMain: React.FC<PodcastProps> = (props) => {
   );
 };
 
-const VCoverBackground: React.FC<{coverSrc: string}> = ({coverSrc}) => {
+const VCoverBackground: React.FC<{
+  coverSrc: string;
+  chapters: PodcastProps['chapters'];
+  chapterImageSrcs: string[];
+}> = ({coverSrc, chapters, chapterImageSrcs}) => {
   const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const curSec = frame / fps;
   const scale = 1 + frame * 0.0003;
+
+  // 每个章节图作底图的 opacity：从 atSec 起 0.8s 淡入，下一章 atSec 前 0.8s 淡出
+  const chapterOpacities = chapters.map((ch, i) => {
+    const start = ch.atSec;
+    const end = i < chapters.length - 1 ? chapters[i + 1].atSec : Infinity;
+    const fadeIn = interpolate(curSec, [start, start + 0.8], [0, 1], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    });
+    const fadeOut =
+      end < Infinity
+        ? interpolate(curSec, [end - 0.8, end], [1, 0], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          })
+        : 1;
+    return fadeIn * fadeOut;
+  });
+
+  // 第一章 atSec 之前 cover 全亮；进入第一章后淡出，让位章节图
+  const baseCoverOpacity =
+    chapters.length > 0
+      ? interpolate(curSec, [chapters[0].atSec, chapters[0].atSec + 0.8], [0.95, 0], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
+      : 0.95;
+
   return (
     <>
       <AbsoluteFill style={{overflow: 'hidden'}}>
         <Img
           src={coverSrc}
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
             objectFit: 'cover',
             transform: `scale(${scale})`,
-            opacity: 0.95,
+            opacity: baseCoverOpacity,
           }}
         />
+        {chapterImageSrcs.map((src, i) =>
+          src && chapterOpacities[i] > 0.001 ? (
+            <Img
+              key={i}
+              src={src}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: `scale(${scale})`,
+                opacity: chapterOpacities[i] * 0.95,
+              }}
+            />
+          ) : null,
+        )}
       </AbsoluteFill>
       <AbsoluteFill
         style={{

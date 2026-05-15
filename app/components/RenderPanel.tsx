@@ -28,10 +28,9 @@ export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boole
       .then(setState);
   }, [jobId]);
 
-  // 渲染中轮询
+  // 轮询：包括 idle 状态（自动渲染会从外部 POST 触发，前端要能探测到）
   useEffect(() => {
-    if (!state?.render) return;
-    const s = state.render.status;
+    const s = state?.render?.status;
     if (s === 'done' || s === 'failed') return;
     const t = setInterval(async () => {
       const next = await fetch(`/api/render/${jobId}/status`).then((r) => r.json());
@@ -244,6 +243,9 @@ function DoneView({jobId, sizeBytes}: {jobId: string; sizeBytes: number}) {
 
       <video
         controls
+        autoPlay
+        muted
+        playsInline
         src={videoUrl}
         style={{
           width: '100%',
