@@ -350,24 +350,30 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
           >
             取消
           </button>
-          <button
-            onClick={save}
-            disabled={saving || !minimaxKey}
-            style={{
-              padding: '12px 24px',
-              background:
-                saving || !minimaxKey
-                  ? '#4b5563'
-                  : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
-              border: 'none',
-              borderRadius: 10,
-              color: '#0b0f17',
-              fontWeight: 700,
-              cursor: saving || !minimaxKey ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {saving ? '保存中…' : '保存'}
-          </button>
+          {(() => {
+            const brandChanged = brandInput !== (config?.brand ?? '');
+            const nothingToSave = !minimaxKey && !brandChanged;
+            const disabled = saving || nothingToSave;
+            return (
+              <button
+                onClick={save}
+                disabled={disabled}
+                style={{
+                  padding: '12px 24px',
+                  background: disabled
+                    ? '#4b5563'
+                    : 'linear-gradient(90deg, #fbbf24, #f59e0b)',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#0b0f17',
+                  fontWeight: 700,
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {saving ? '保存中…' : '保存'}
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>
