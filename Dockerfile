@@ -38,6 +38,11 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Remotion 在运行时通过 bundle() webpack-编译 remotion/ 源码，需要源文件 + node_modules
+# （standalone 的依赖追踪只覆盖 server.js 静态导入，不知道运行时 bundle 用的 react/remotion/zod 等）
+COPY --from=builder /app/remotion ./remotion
+COPY --from=builder /app/node_modules ./node_modules
+
 # 数据卷：用户上传 / config / 渲染产物都挂这里
 RUN mkdir -p /data/uploads /data/output /data/config
 VOLUME ["/data"]
