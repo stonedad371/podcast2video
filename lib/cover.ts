@@ -32,7 +32,8 @@ export async function generateCover(opts: {
       aspect_ratio: '9:16',
       n: 1,
       prompt_optimizer: true,
-      response_format: 'url',
+      // 直接拿 base64 避开 cdn.minimax.chat 二次下载（容器内 DNS 不通过它）
+      response_format: 'base64',
     }),
   });
 
@@ -42,18 +43,15 @@ export async function generateCover(opts: {
   }
   const data = (await res.json()) as {
     base_resp?: {status_code?: number; status_msg?: string};
-    data?: {image_urls?: string[]};
+    data?: {image_base64?: string[]};
   };
   if (data.base_resp?.status_code !== 0) {
     throw new Error(`MiniMax: ${data.base_resp?.status_msg ?? '未知错误'}`);
   }
-  const url = data.data?.image_urls?.[0];
-  if (!url) throw new Error('MiniMax 没返回 image_urls');
+  const b64 = data.data?.image_base64?.[0];
+  if (!b64) throw new Error('MiniMax 没返回 image_base64');
 
-  // 下载图片
-  const imgRes = await fetch(url);
-  if (!imgRes.ok) throw new Error(`下载图片失败 HTTP ${imgRes.status}`);
-  const buf = Buffer.from(await imgRes.arrayBuffer());
+  const buf = Buffer.from(b64, 'base64');
   await fs.mkdir(path.dirname(outPath), {recursive: true});
   await fs.writeFile(outPath, buf);
 

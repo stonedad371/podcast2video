@@ -49,8 +49,11 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
     return NextResponse.json({error: '渲染已在进行中'}, {status: 409});
   }
 
-  // 渲染需要从 Chromium 访问 Next 服务，所以要拿到完整 origin
-  const origin = req.headers.get('origin') || req.nextUrl.origin;
+  // Chromium 在 Remotion bundle 里 fetch 字幕/音频/封面。Docker 容器里 localhost:3010
+  // （宿主机映射端口）从容器内访问不到，必须走容器内自己监听的 PORT。
+  // 本地 dev 模式下 PORT 默认 3000，跟浏览器开的端口一致，也成立。
+  const port = process.env.PORT || '3000';
+  const origin = `http://127.0.0.1:${port}`;
 
   await ensureDirs();
   const outDir = path.join(OUTPUT_DIR, id);
