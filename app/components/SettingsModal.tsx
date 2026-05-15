@@ -12,13 +12,20 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
   const [testResult, setTestResult] = useState<{ok: boolean; msg: string} | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [autoRender, setAutoRender] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     fetch('/api/config')
       .then((r) => r.json())
       .then(setConfig);
+    setAutoRender(localStorage.getItem('autoRender') === 'true');
   }, [open]);
+
+  const toggleAutoRender = (next: boolean) => {
+    setAutoRender(next);
+    localStorage.setItem('autoRender', next ? 'true' : 'false');
+  };
 
   if (!open) return null;
 
@@ -252,6 +259,40 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
               MiniMax 开放平台
             </a>
           </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 20,
+            padding: 16,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid #374151',
+            borderRadius: 10,
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              cursor: 'pointer',
+              fontSize: 14,
+              color: '#e5e7eb',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={autoRender}
+              onChange={(e) => toggleAutoRender(e.target.checked)}
+              style={{marginTop: 3, cursor: 'pointer', accentColor: '#fbbf24'}}
+            />
+            <div>
+              <div style={{fontWeight: 600}}>前序就绪后自动渲染</div>
+              <div style={{color: '#9ca3af', fontSize: 12, marginTop: 4, lineHeight: 1.5}}>
+                分析 + 封面都完成后，无需点「开始生成」，自动启动渲染。
+              </div>
+            </div>
+          </label>
         </div>
 
         <div style={{display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end'}}>

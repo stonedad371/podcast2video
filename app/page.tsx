@@ -53,17 +53,31 @@ export default function Home() {
         }
 
         setGeneratingCover(true);
+        let coverOk = false;
         try {
           const res = await fetch(`/api/cover/${job.id}`, {method: 'POST'});
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '生封面失败');
           setFullJob(data.job);
+          coverOk = true;
         } catch (e) {
           setError((prev) =>
             prev ? `${prev}；封面失败：${(e as Error).message}` : `封面失败：${(e as Error).message}`,
           );
         } finally {
           setGeneratingCover(false);
+        }
+
+        // 前序都成功 + 用户在设置里开了"自动渲染" → 直接触发渲染
+        if (coverOk && localStorage.getItem('autoRender') === 'true') {
+          try {
+            await fetch(`/api/render/${job.id}`, {method: 'POST'});
+            // RenderPanel 自己会轮询 status，不需要再 setFullJob
+          } catch (e) {
+            setError((prev) =>
+              prev ? `${prev}；自动渲染启动失败：${(e as Error).message}` : `自动渲染启动失败：${(e as Error).message}`,
+            );
+          }
         }
       }
     };
