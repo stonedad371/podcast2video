@@ -875,10 +875,19 @@ const VOutro: React.FC<PodcastProps> = ({title, accentColor, coverSrc}) => {
   const lineWidth = interpolate(frame, [10, 40], [0, 360], {extrapolateRight: 'clamp'});
   const farewellSpring = spring({frame: frame - 30, fps, from: 0, to: 1, config: {damping: 14}});
   const tagSpring = spring({frame: frame - 50, fps, from: 0, to: 1, config: {damping: 14}});
+  // 互动引导（关注 / 点赞 / 评论 / 收藏）—— 错开 spring 让 4 个 icon 像跳一下进场
+  const ctaSpring = (delayFrames: number) =>
+    spring({frame: frame - delayFrames, fps, from: 0, to: 1, config: {damping: 12, stiffness: 180}});
   const fadeOut = interpolate(frame, [durationInFrames - 30, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
+  const ctas = [
+    {emoji: '👀', label: '关注', delay: 70},
+    {emoji: '👍', label: '点赞', delay: 78},
+    {emoji: '💬', label: '评论', delay: 86},
+    {emoji: '⭐️', label: '收藏', delay: 94},
+  ];
   return (
     <AbsoluteFill style={{backgroundColor: '#06090f', opacity: fadeOut}}>
       <Img
@@ -931,9 +940,67 @@ const VOutro: React.FC<PodcastProps> = ({title, accentColor, coverSrc}) => {
             marginTop: 40,
             opacity: tagSpring,
             textAlign: 'center',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            maxWidth: 920,
           }}
         >
           《{title}》
+        </div>
+
+        {/* 互动引导：关注 / 点赞 / 评论 / 收藏 */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 56,
+            marginTop: 80,
+          }}
+        >
+          {ctas.map((cta) => {
+            const s = ctaSpring(cta.delay);
+            return (
+              <div
+                key={cta.label}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 12,
+                  opacity: s,
+                  transform: `scale(${0.7 + s * 0.3}) translateY(${(1 - s) * 16}px)`,
+                }}
+              >
+                <div
+                  style={{
+                    width: 130,
+                    height: 130,
+                    borderRadius: '50%',
+                    background: `linear-gradient(180deg, ${accentColor}22, ${accentColor}11)`,
+                    border: `2px solid ${accentColor}88`,
+                    boxShadow: `0 0 36px ${accentColor}55`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 70,
+                  }}
+                >
+                  {cta.emoji}
+                </div>
+                <div
+                  style={{
+                    color: '#fff',
+                    fontSize: 30,
+                    fontWeight: 700,
+                    letterSpacing: 4,
+                  }}
+                >
+                  {cta.label}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

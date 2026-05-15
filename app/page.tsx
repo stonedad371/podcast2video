@@ -458,7 +458,7 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     ),
     quotes: job.config.quotes,
     posterDurationSec: 1 / 30,
-    outroDurationSec: 3,
+    outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,
   };
 }

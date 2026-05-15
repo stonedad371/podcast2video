@@ -9,7 +9,17 @@ export const JOBS_FILE = path.join(DATA_DIR, 'jobs.json');
 
 export type JobStatus = 'analyzed' | 'rendering' | 'done' | 'failed';
 
-export type Chapter = {atSec: number; title: string; imagePrompt?: string};
+export type ChapterImageStatus = 'pending' | 'generating' | 'done' | 'failed';
+export type Chapter = {
+  atSec: number;
+  title: string;
+  imagePrompt?: string;
+  // 章节图状态：pending 还没开生 / generating 正在生 / done 已就绪 / failed 失败
+  imageStatus?: ChapterImageStatus;
+  // 上次用户给的提示词（中/英文都可），重生时作为 LLM 综合的补充输入
+  imageHint?: string;
+  imageError?: string;
+};
 export type Quote = {fromSec: number; durationSec: number; text: string};
 
 export type Job = {

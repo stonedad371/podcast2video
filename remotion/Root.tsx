@@ -20,7 +20,7 @@ const DEFAULT_PROPS: PodcastProps = {
   chapterImageSrcs: [],
   quotes: [],
   posterDurationSec: 1 / 30,
-  outroDurationSec: 3,
+  outroDurationSec: 5,
   audioDurationSec: 60,
 };
 

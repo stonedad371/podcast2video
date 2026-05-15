@@ -45,7 +45,7 @@ function buildProps(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
     posterDurationSec: 1 / 30, // 1 帧 @ 30fps：让平台抓得到首帧封面，肉眼几乎察觉不到停留
-    outroDurationSec: 3,
+    outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,
   };
 }
