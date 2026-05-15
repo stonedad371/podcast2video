@@ -832,7 +832,7 @@ const VSubtitleLine: React.FC<{
     <div
       style={{
         position: 'absolute',
-        top: 1280,
+        top: 1100,
         left: 60,
         right: 60,
         height: 540,

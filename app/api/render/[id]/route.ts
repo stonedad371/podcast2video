@@ -136,6 +136,9 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
         onProgress: async (stage, progress) => {
           const j = await getJob(id);
           if (!j) return;
+          // Remotion 不 await onProgress——最后一次 progress=1 回调可能晚于下面 status='done'
+          // 那一步执行，把 status 踩回 'rendering'。这里 guard：已经 done/failed 就不再写。
+          if (j.render?.status === 'done' || j.render?.status === 'failed') return;
           await updateJob(id, {
             render: {
               ...(j.render ?? {startedAt: Date.now(), status: 'rendering' as const, progress: 0}),
