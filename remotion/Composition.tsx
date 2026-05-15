@@ -51,7 +51,6 @@ export type SpeakerStyle = z.infer<typeof speakerStyleSchema>;
 export type PodcastProps = z.infer<typeof podcastSchema>;
 
 const CHAPTER_BANNER_SEC = 3.5;
-const CHAPTER_IMAGE_CARD_SEC = 1.5;
 const secToFrames = (sec: number, fps: number) => Math.round(sec * fps);
 
 export const PodcastVertical: React.FC<PodcastProps> = (props) => {
@@ -125,11 +124,16 @@ const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor
       <div
         style={{
           color: '#fff',
-          fontSize: 130,
+          fontSize: 118,
           fontWeight: 800,
-          lineHeight: 1.1,
+          lineHeight: 1.12,
           textAlign: 'center',
           textShadow: '0 6px 50px rgba(0,0,0,0.75)',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          maxWidth: 980,
         }}
       >
         {title}
@@ -242,25 +246,6 @@ const VMain: React.FC<PodcastProps> = (props) => {
           <VChapterBanner index={i + 1} title={ch.title} accentColor={accentColor} />
         </Sequence>
       ))}
-
-      {chapters.map((ch, i) => {
-        const src = chapterImageSrcs[i];
-        if (!src) return null;
-        return (
-          <Sequence
-            key={`ch-img-${i}`}
-            from={secToFrames(ch.atSec, fps)}
-            durationInFrames={secToFrames(CHAPTER_IMAGE_CARD_SEC, fps)}
-          >
-            <VChapterImageCard
-              index={i + 1}
-              title={ch.title}
-              imageSrc={src}
-              accentColor={accentColor}
-            />
-          </Sequence>
-        );
-      })}
 
       {quotes.map((q, i) => (
         <Sequence
@@ -753,55 +738,71 @@ const VKeyQuote: React.FC<{text: string; accentColor: string}> = ({text, accentC
     extrapolateRight: 'clamp',
   });
   const opacity = fadeIn * fadeOut;
+  // 金句不再全屏暗化遮盖——做成中段卡片（字幕在金句时间窗已被 hidden，让出位置）
   return (
-    <AbsoluteFill
+    <div
       style={{
-        backgroundColor: `rgba(0, 0, 0, ${opacity * 0.78})`,
-        backdropFilter: `blur(${opacity * 12}px)`,
+        position: 'absolute',
+        top: 900,
+        left: 60,
+        right: 60,
+        display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: '0 60px',
+        opacity,
+        transform: `translateY(${(1 - fadeIn) * 30}px)`,
+        fontFamily: '"Noto Serif SC", "PingFang SC", serif',
       }}
     >
       <div
         style={{
-          color: accentColor,
-          fontSize: 220,
-          lineHeight: 0.4,
-          fontFamily: 'serif',
-          opacity: opacity * 0.7,
-          marginBottom: 48,
-          textShadow: `0 0 60px ${accentColor}aa`,
+          position: 'relative',
+          maxWidth: 920,
+          padding: '40px 56px',
+          backgroundColor: 'rgba(6, 9, 15, 0.78)',
+          backdropFilter: 'blur(14px)',
+          borderRadius: 22,
+          border: `1px solid ${accentColor}55`,
+          boxShadow: `0 24px 80px rgba(0,0,0,0.5), 0 0 40px ${accentColor}33`,
         }}
       >
-        “
+        <div
+          style={{
+            position: 'absolute',
+            top: -8,
+            left: 24,
+            color: accentColor,
+            fontSize: 140,
+            lineHeight: 1,
+            fontFamily: 'serif',
+            opacity: 0.55,
+            textShadow: `0 0 40px ${accentColor}88`,
+          }}
+        >
+          "
+        </div>
+        <div
+          style={{
+            color: '#fff',
+            fontSize: 76,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            textAlign: 'center',
+            textShadow: '0 4px 24px rgba(0,0,0,0.7)',
+          }}
+        >
+          {text}
+        </div>
+        <div
+          style={{
+            margin: '24px auto 0',
+            width: 70,
+            height: 3,
+            backgroundColor: accentColor,
+            boxShadow: `0 0 16px ${accentColor}`,
+          }}
+        />
       </div>
-      <div
-        style={{
-          color: '#fff',
-          fontSize: 100,
-          fontWeight: 700,
-          lineHeight: 1.3,
-          textAlign: 'center',
-          opacity,
-          transform: `translateY(${(1 - fadeIn) * 30}px)`,
-          textShadow: '0 6px 40px rgba(0,0,0,0.6)',
-          fontFamily: '"Noto Serif SC", "PingFang SC", serif',
-        }}
-      >
-        {text}
-      </div>
-      <div
-        style={{
-          width: 100,
-          height: 3,
-          backgroundColor: accentColor,
-          marginTop: 60,
-          opacity,
-          boxShadow: `0 0 20px ${accentColor}`,
-        }}
-      />
-    </AbsoluteFill>
+    </div>
   );
 };
 
@@ -939,104 +940,3 @@ const VOutro: React.FC<PodcastProps> = ({title, accentColor, coverSrc}) => {
   );
 };
 
-/* ============================================================ */
-const VChapterImageCard: React.FC<{
-  index: number;
-  title: string;
-  imageSrc: string;
-  accentColor: string;
-}> = ({index, title, imageSrc, accentColor}) => {
-  const frame = useCurrentFrame();
-  const {durationInFrames} = useVideoConfig();
-
-  const opacity = interpolate(
-    frame,
-    [0, 6, durationInFrames - 10, durationInFrames],
-    [0, 1, 1, 0],
-    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-  );
-  const scale = interpolate(frame, [0, durationInFrames], [1.08, 1.0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const titleY = interpolate(frame, [0, 14], [40, 0], {extrapolateRight: 'clamp'});
-  const titleOpacity = interpolate(
-    frame,
-    [4, 14, durationInFrames - 8, durationInFrames],
-    [0, 1, 1, 0],
-    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-  );
-
-  return (
-    <AbsoluteFill style={{opacity}}>
-      <AbsoluteFill style={{overflow: 'hidden', backgroundColor: '#06090f'}}>
-        <Img
-          src={imageSrc}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: `scale(${scale})`,
-          }}
-        />
-      </AbsoluteFill>
-      <AbsoluteFill
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(6,9,15,0.15) 0%, rgba(6,9,15,0) 45%, rgba(6,9,15,0.55) 75%, rgba(6,9,15,0.95) 100%)',
-        }}
-      />
-      <AbsoluteFill
-        style={{
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          paddingBottom: 360,
-          paddingLeft: 60,
-          paddingRight: 60,
-          fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
-          opacity: titleOpacity,
-          transform: `translateY(${titleY}px)`,
-        }}
-      >
-        <div
-          style={{
-            color: accentColor,
-            fontSize: 26,
-            fontWeight: 700,
-            letterSpacing: 8,
-            fontFamily: '"SF Mono", Menlo, monospace',
-            marginBottom: 18,
-            textShadow: '0 2px 12px rgba(0,0,0,0.8)',
-          }}
-        >
-          CHAPTER {String(index).padStart(2, '0')}
-        </div>
-        <div
-          style={{
-            color: '#fff',
-            fontSize: 72,
-            fontWeight: 800,
-            lineHeight: 1.15,
-            textAlign: 'center',
-            textShadow: '0 4px 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7)',
-            maxWidth: 900,
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            marginTop: 28,
-            width: 80,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: accentColor,
-            boxShadow: `0 0 16px ${accentColor}`,
-          }}
-        />
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-};

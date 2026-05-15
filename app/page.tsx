@@ -695,10 +695,15 @@ function PipelineProgress({
   return (
     <div
       style={{
-        padding: '20px 24px',
-        background: 'rgba(255,255,255,0.025)',
+        position: 'sticky',
+        top: 12,
+        zIndex: 30,
+        padding: '16px 24px',
+        background: 'rgba(15, 18, 25, 0.92)',
+        backdropFilter: 'blur(12px)',
         border: '1px solid #1f2937',
         borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
