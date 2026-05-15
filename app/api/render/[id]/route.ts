@@ -91,15 +91,19 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   // 后台跑（不阻塞响应）
   void (async () => {
     try {
-      // 先按需生成章节图（已存在则跳过）。失败不阻塞渲染，章节图会在 Composition 里
-      // 以 404 fallback 显示底色 + 章节标题。
-      try {
-        const keys = await loadKeys();
-        if (keys.minimax && job.config.chapters.length > 0) {
-          await ensureChapterImages({job, apiKey: keys.minimax});
-        }
-      } catch (err) {
-        console.error('[chapter-images] generation failed (non-fatal):', err);
+      // 先生成所有章节图：缺图时 Chromium 会死循环 retry 卡住整个 render，
+      // 所以这一步**必须**成功（或者整个 render 直接失败给用户明确反馈）。
+      const keys = await loadKeys();
+      if (keys.minimax && job.config.chapters.length > 0) {
+        await updateJob(id, {
+          render: {
+            status: 'bundling',
+            stage: 'bundling',
+            progress: 0,
+            startedAt: Date.now(),
+          },
+        });
+        await ensureChapterImages({job, apiKey: keys.minimax});
       }
 
       await updateJob(id, {

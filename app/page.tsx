@@ -42,16 +42,31 @@ export default function Home() {
 
       if (config.minimax.configured) {
         setAnalyzing(true);
+        let analyzeOk = false;
         try {
           const res = await fetch(`/api/analyze/${job.id}`, {method: 'POST'});
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '分析失败');
           setFullJob(data.job);
+          analyzeOk = true;
         } catch (e) {
-          setError(`自动分析失败：${(e as Error).message}`);
+          // 网络 fetch failed 时后端 analyze 可能已经跑完。重新拉一次 job，
+          // 如果已经写好了 chapters 就当成功（避免误报错）。
+          try {
+            const recheck = await fetch(`/api/job/${job.id}`).then((r) => r.json());
+            if (recheck.job?.config?.chapters?.length > 0) {
+              setFullJob(recheck.job);
+              analyzeOk = true;
+            } else {
+              setError(`自动分析失败：${(e as Error).message}`);
+            }
+          } catch {
+            setError(`自动分析失败：${(e as Error).message}`);
+          }
         } finally {
           setAnalyzing(false);
         }
+        if (!analyzeOk) return;
 
         setGeneratingCover(true);
         let coverOk = false;
@@ -416,11 +431,36 @@ function AnalysisProgress({
         alignItems: 'center',
       }}
     >
-      <span style={{fontSize: 20}}>⏳</span>
+      <span
+        style={{
+          width: 20,
+          height: 20,
+          border: '3px solid rgba(251,191,36,0.25)',
+          borderTopColor: '#fbbf24',
+          borderRadius: '50%',
+          animation: 'spin 0.9s linear infinite',
+          flexShrink: 0,
+        }}
+      />
       <div style={{display: 'flex', flexDirection: 'column', gap: 4}}>
-        {analyzing && <div>🤖 LLM 分析中：切章节 + 挑金句…</div>}
-        {generatingCover && <div>🎨 LLM 生成封面中…</div>}
+        {analyzing && (
+          <div>
+            🤖 LLM 分析中：切章节 + 挑金句…
+            <span style={{color: '#9ca3af', fontSize: 12, marginLeft: 8}}>
+              通常 15-40 秒，请耐心等
+            </span>
+          </div>
+        )}
+        {generatingCover && (
+          <div>
+            🎨 LLM 生成封面中…
+            <span style={{color: '#9ca3af', fontSize: 12, marginLeft: 8}}>
+              约 15-30 秒
+            </span>
+          </div>
+        )}
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
