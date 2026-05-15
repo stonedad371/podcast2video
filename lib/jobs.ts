@@ -11,7 +11,6 @@ export type JobStatus = 'analyzed' | 'rendering' | 'done' | 'failed';
 
 export type Chapter = {atSec: number; title: string; imagePrompt?: string};
 export type Quote = {fromSec: number; durationSec: number; text: string};
-export type Hook = {number: string; text: string};
 
 export type Job = {
   id: string;
@@ -26,7 +25,6 @@ export type Job = {
     accentColor: string;
     chapters: Chapter[];
     quotes: Quote[];
-    hook?: Hook;
   };
   cover?: {path: string; sizeBytes: number};
   output?: {path: string; sizeBytes: number};

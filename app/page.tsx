@@ -1,6 +1,6 @@
 'use client';
 
-import {Fragment, useEffect, useState} from 'react';
+import {Fragment, useEffect, useRef, useState} from 'react';
 import {UploadZone, type UploadResult} from './components/UploadZone';
 import {JobSummary} from './components/JobSummary';
 import {SettingsModal} from './components/SettingsModal';
@@ -28,6 +28,11 @@ export default function Home() {
     imagesTotal?: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // 防 strictMode 双跑 / refreshConfig 触发 effect 重跑导致重复 POST analyze + cover
+  const processedJobIdRef = useRef<string | null>(null);
+  // autoRender 每个 job 只触发一次
+  const autoRenderTriggeredRef = useRef<string | null>(null);
 
   const refreshConfig = () =>
     fetch('/api/config')
@@ -63,78 +68,120 @@ export default function Home() {
   }, [job]);
 
   // 上传完成后自动分析 + 生封面（基于 key 配置）
+  // 依赖只看 jobId 和"key 是否配置"——避免 config 对象引用变化（refreshConfig 后）
+  // 触发整个 pipeline 重跑（导致重复扣费）。strictMode 双 mount 用 processedJobIdRef 拦截。
+  const hasKey = config?.minimax.configured ?? false;
   useEffect(() => {
     if (!job || !config) return;
+    if (processedJobIdRef.current === job.id) return;
+    processedJobIdRef.current = job.id;
+
+    let cancelled = false;
+    const ac = new AbortController();
     const run = async () => {
       setError(null);
       // 先把基础 job 信息显示出来
-      const initial = await fetch(`/api/job/${job.id}`).then((r) => r.json());
-      setFullJob(initial.job);
+      try {
+        const initial = await fetch(`/api/job/${job.id}`, {signal: ac.signal}).then((r) =>
+          r.json(),
+        );
+        if (cancelled) return;
+        setFullJob(initial.job);
+      } catch {
+        if (cancelled) return;
+      }
 
-      if (config.minimax.configured) {
-        setAnalyzing(true);
-        let analyzeOk = false;
+      if (!hasKey) return;
+
+      setAnalyzing(true);
+      let analyzeOk = false;
+      try {
+        const res = await fetch(`/api/analyze/${job.id}`, {method: 'POST', signal: ac.signal});
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || '分析失败');
+        setFullJob(data.job);
+        analyzeOk = true;
+      } catch (e) {
+        if (cancelled) return;
+        // 网络 fetch failed 时后端 analyze 可能已经跑完。重新拉一次 job，
+        // 如果已经写好了 chapters 就当成功（避免误报错）。
         try {
-          const res = await fetch(`/api/analyze/${job.id}`, {method: 'POST'});
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || '分析失败');
-          setFullJob(data.job);
-          analyzeOk = true;
-        } catch (e) {
-          // 网络 fetch failed 时后端 analyze 可能已经跑完。重新拉一次 job，
-          // 如果已经写好了 chapters 就当成功（避免误报错）。
-          try {
-            const recheck = await fetch(`/api/job/${job.id}`).then((r) => r.json());
-            if (recheck.job?.config?.chapters?.length > 0) {
-              setFullJob(recheck.job);
-              analyzeOk = true;
-            } else {
-              setError(`自动分析失败：${(e as Error).message}`);
-            }
-          } catch {
+          const recheck = await fetch(`/api/job/${job.id}`, {signal: ac.signal}).then((r) =>
+            r.json(),
+          );
+          if (cancelled) return;
+          if (recheck.job?.config?.chapters?.length > 0) {
+            setFullJob(recheck.job);
+            analyzeOk = true;
+            setError(null); // 兜底成功时清除之前 fetch 失败的误导提示
+          } else {
             setError(`自动分析失败：${(e as Error).message}`);
           }
-        } finally {
-          setAnalyzing(false);
+        } catch {
+          if (!cancelled) setError(`自动分析失败：${(e as Error).message}`);
         }
-        if (!analyzeOk) return;
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+      if (cancelled || !analyzeOk) return;
 
-        setGeneratingCover(true);
-        let coverOk = false;
-        try {
-          const res = await fetch(`/api/cover/${job.id}`, {method: 'POST'});
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || '生封面失败');
-          setFullJob(data.job);
-          coverOk = true;
-        } catch (e) {
+      setGeneratingCover(true);
+      let coverOk = false;
+      try {
+        const res = await fetch(`/api/cover/${job.id}`, {method: 'POST', signal: ac.signal});
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || '生封面失败');
+        setFullJob(data.job);
+        coverOk = true;
+      } catch (e) {
+        if (!cancelled) {
           setError((prev) =>
-            prev ? `${prev}；封面失败：${(e as Error).message}` : `封面失败：${(e as Error).message}`,
+            prev
+              ? `${prev}；封面失败：${(e as Error).message}`
+              : `封面失败：${(e as Error).message}`,
           );
-        } finally {
-          setGeneratingCover(false);
         }
+      } finally {
+        if (!cancelled) setGeneratingCover(false);
+      }
 
-        // 前序都成功 + 用户在设置里开了"自动渲染" → 直接触发渲染
-        if (coverOk && localStorage.getItem('autoRender') === 'true') {
-          try {
-            await fetch(`/api/render/${job.id}`, {method: 'POST'});
-            // RenderPanel 自己会轮询 status，不需要再 setFullJob
-          } catch (e) {
+      // 前序都成功 + 用户开了"自动渲染" + 该 job 还没自动触发过 → 触发渲染
+      if (
+        !cancelled &&
+        coverOk &&
+        localStorage.getItem('autoRender') === 'true' &&
+        autoRenderTriggeredRef.current !== job.id
+      ) {
+        autoRenderTriggeredRef.current = job.id;
+        try {
+          await fetch(`/api/render/${job.id}`, {method: 'POST', signal: ac.signal});
+        } catch (e) {
+          if (!cancelled) {
             setError((prev) =>
-              prev ? `${prev}；自动渲染启动失败：${(e as Error).message}` : `自动渲染启动失败：${(e as Error).message}`,
+              prev
+                ? `${prev}；自动渲染启动失败：${(e as Error).message}`
+                : `自动渲染启动失败：${(e as Error).message}`,
             );
           }
         }
       }
     };
     run();
-  }, [job, config]);
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, hasKey]);
 
   const reset = () => {
     setJob(null);
     setFullJob(null);
     setError(null);
+    processedJobIdRef.current = null;
+    autoRenderTriggeredRef.current = null;
   };
 
   return (
@@ -376,7 +423,6 @@ type FullJob = {
     accentColor: string;
     chapters: {atSec: number; title: string; imagePrompt?: string}[];
     quotes: {fromSec: number; durationSec: number; text: string}[];
-    hook?: {number: string; text: string};
   };
   cover?: {path: string; sizeBytes: number};
 };
@@ -406,15 +452,12 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     speakers,
     subtitleOffsetSec: 0,
     subtitleTimeScale: job.computed.subtitleTimeScale,
-    hook: job.config.hook ?? {number: '', text: ''},
     chapters: job.config.chapters,
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `/api/chapter-images/${job.id}/${i}/image`,
     ),
     quotes: job.config.quotes,
-    hookDurationSec: 0,
     posterDurationSec: 1 / 30,
-    introDurationSec: 0,
     outroDurationSec: 3,
     audioDurationSec: job.audio.durationSec,
   };
@@ -745,6 +788,8 @@ function CoverPreview({job, brand}: {job: FullJob; brand: string}) {
   const accentColor = job.config.accentColor || '#fbbf24';
   const title = job.config.title || '播客标题';
   const subtitle = job.config.subtitle || '';
+  // 用 cover.sizeBytes 当版本号——cover 重新生成才会变。避免每次重渲都重拉。
+  const coverSrc = `/api/cover/${job.id}/image?v=${job.cover?.sizeBytes ?? 0}`;
 
   // 模拟视频第一帧（VPoster 的迷你版本）：1080x1920 → 220x391，等比 ≈ 1:4.9
   return (
@@ -763,7 +808,7 @@ function CoverPreview({job, brand}: {job: FullJob; brand: string}) {
           }}
         >
           <img
-            src={`/api/cover/${job.id}/image?ts=${Date.now()}`}
+            src={coverSrc}
             alt="cover"
             style={{
               position: 'absolute',

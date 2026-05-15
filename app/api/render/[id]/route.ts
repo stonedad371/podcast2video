@@ -39,15 +39,12 @@ function buildProps(
     speakers,
     subtitleOffsetSec: 0,
     subtitleTimeScale: job.computed.subtitleTimeScale,
-    hook: job.config.hook ?? {number: '', text: ''},
     chapters: job.config.chapters,
     quotes: job.config.quotes,
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
-    hookDurationSec: 0,
     posterDurationSec: 1 / 30, // 1 帧 @ 30fps：让平台抓得到首帧封面，肉眼几乎察觉不到停留
-    introDurationSec: 0,
     outroDurationSec: 3,
     audioDurationSec: job.audio.durationSec,
   };
@@ -73,18 +70,19 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   const outputPath = path.join(outDir, 'video.mp4');
 
   const brand = await getBrand();
-  let inputProps: PodcastProps;
+  // 提前 build 一次仅为校验（封面是否就绪等）；后台 IIFE 里会重新读 job 再 build。
   try {
-    inputProps = buildProps(job, origin, brand);
+    buildProps(job, origin, brand);
   } catch (err) {
     return NextResponse.json({error: (err as Error).message}, {status: 400});
   }
 
+  const queuedAt = Date.now();
   await updateJob(id, {
     render: {
       status: 'queued',
       progress: 0,
-      startedAt: Date.now(),
+      startedAt: queuedAt,
     },
   });
 
@@ -94,42 +92,50 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
       // 先生成所有章节图：缺图时 Chromium 会死循环 retry 卡住整个 render，
       // 所以这一步**必须**成功（或者整个 render 直接失败给用户明确反馈）。
       const keys = await loadKeys();
-      const chapterCount = job.config.chapters.length;
+      // 用最新磁盘状态——队列入口后用户/外部可能 PATCH 过 chapters
+      const freshJob = await getJob(id);
+      if (!freshJob) throw new Error('job 在 render 启动前消失了');
+      const chapterCount = freshJob.config.chapters.length;
       if (keys.minimax && chapterCount > 0) {
-        await updateJob(id, {
+        await updateJob(id, (j) => ({
           render: {
             status: 'bundling',
             stage: 'images',
             progress: 0,
-            startedAt: Date.now(),
+            startedAt: j.render?.startedAt ?? queuedAt,
           },
-        });
+        }));
         await ensureChapterImages({
-          job,
+          job: freshJob,
           apiKey: keys.minimax,
           onProgress: async (done, total) => {
-            await updateJob(id, {
+            await updateJob(id, (j) => ({
               render: {
                 status: 'bundling',
                 stage: 'images',
                 progress: done / total,
                 imagesDone: done,
                 imagesTotal: total,
-                startedAt: Date.now(),
+                startedAt: j.render?.startedAt ?? queuedAt,
               },
-            });
+            }));
           },
         });
       }
 
-      await updateJob(id, {
+      // 章节图齐了再用最新 job + chapters build inputProps，传给 Remotion
+      const finalJob = await getJob(id);
+      if (!finalJob) throw new Error('job 在 bundle 前消失了');
+      const inputProps = buildProps(finalJob, origin, brand);
+
+      await updateJob(id, (j) => ({
         render: {
           status: 'bundling',
           stage: 'bundling',
           progress: 0,
-          startedAt: Date.now(),
+          startedAt: j.render?.startedAt ?? queuedAt,
         },
-      });
+      }));
       await renderVideo({
         inputProps,
         outputPath,
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
             if (j.render?.status === 'done' || j.render?.status === 'failed') return null;
             return {
               render: {
-                ...(j.render ?? {startedAt: Date.now(), status: 'rendering' as const, progress: 0}),
+                ...(j.render ?? {startedAt: queuedAt, status: 'rendering' as const, progress: 0}),
                 status: stage === 'bundling' ? 'bundling' : 'rendering',
                 stage,
                 progress,
@@ -150,26 +156,26 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
         },
       });
       const stat = await fs.stat(outputPath);
-      await updateJob(id, {
+      await updateJob(id, (j) => ({
         output: {path: outputPath, sizeBytes: stat.size},
         render: {
           status: 'done',
           progress: 1,
           stage: 'rendering',
-          startedAt: job.render?.startedAt ?? Date.now(),
+          startedAt: j.render?.startedAt ?? queuedAt,
           completedAt: Date.now(),
         },
-      });
+      }));
     } catch (err) {
-      await updateJob(id, {
+      await updateJob(id, (j) => ({
         render: {
           status: 'failed',
           progress: 0,
-          startedAt: job.render?.startedAt ?? Date.now(),
+          startedAt: j.render?.startedAt ?? queuedAt,
           completedAt: Date.now(),
           error: (err as Error).message,
         },
-      });
+      }));
     }
   })();
 

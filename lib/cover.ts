@@ -55,8 +55,31 @@ function pickArrayField(d: Record<string, unknown>, keys: string[]): string[] | 
 }
 
 // 通用 MiniMax 9:16 生图函数：传任意 prompt 出一张 jpg 到 outPath
-// 优先用 url 模式（结构稳定），下载失败 fallback base64
+// 优先用 url 模式（结构稳定），下载失败 fallback base64；外层包 retry 抗 MiniMax 偶发抖动。
+const MAX_ATTEMPTS = 3;
+
 export async function generateImage(opts: {
+  apiKey: string;
+  prompt: string;
+  outPath: string;
+}): Promise<{sizeBytes: number}> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await generateImageOnce(opts);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS) {
+        const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s
+        console.warn(`[minimax] generateImage attempt ${attempt} failed, retrying in ${delay}ms:`, err);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function generateImageOnce(opts: {
   apiKey: string;
   prompt: string;
   outPath: string;

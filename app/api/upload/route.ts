@@ -1,5 +1,7 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {promises as fs} from 'node:fs';
+import {createWriteStream, promises as fs} from 'node:fs';
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {parseSrt, computeTimeScale, uniqueSpeakers} from '@/lib/parseSrt';
@@ -52,8 +54,9 @@ export async function POST(req: NextRequest) {
 
   const audioPath = path.join(uploadDir, `audio.${audioExt}`);
   const srtPath = path.join(uploadDir, `captions.${srtExt}`);
-  await fs.writeFile(audioPath, Buffer.from(await audio.arrayBuffer()));
-  await fs.writeFile(srtPath, Buffer.from(await srt.arrayBuffer()));
+  // 流式写入：大音频（几百 MB）不一次读进内存
+  await pipeline(Readable.fromWeb(audio.stream() as never), createWriteStream(audioPath));
+  await pipeline(Readable.fromWeb(srt.stream() as never), createWriteStream(srtPath));
 
   // 分析
   let durationSec: number;

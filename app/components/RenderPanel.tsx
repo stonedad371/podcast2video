@@ -31,9 +31,10 @@ export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boole
   }, [jobId]);
 
   // 轮询：包括 idle 状态（自动渲染会从外部 POST 触发，前端要能探测到）
+  // 依赖只看 status——之前依赖整个 state，每次 setState 都 clearInterval+新 setInterval，浪费且偶发漏拍
+  const status = state?.render?.status;
   useEffect(() => {
-    const s = state?.render?.status;
-    if (s === 'done' || s === 'failed') return;
+    if (status === 'done' || status === 'failed') return;
     const t = setInterval(async () => {
       const next = await fetch(`/api/render/${jobId}/status`).then((r) => r.json());
       setState(next);
@@ -42,7 +43,7 @@ export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boole
       }
     }, 1500);
     return () => clearInterval(t);
-  }, [jobId, state]);
+  }, [jobId, status]);
 
   const start = async () => {
     setStartError(null);

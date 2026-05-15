@@ -40,7 +40,6 @@ export async function POST(_req: NextRequest, {params}: {params: Promise<{id: st
         ...job.config,
         title: finalTitle,
         subtitle: finalSubtitle,
-        hook: result.hook,
         chapters: result.chapters,
         quotes: result.quotes,
       },

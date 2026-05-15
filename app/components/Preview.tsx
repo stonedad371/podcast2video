@@ -5,7 +5,7 @@ import {PodcastVertical, type PodcastProps} from '@/remotion/Composition';
 
 export function Preview({props}: {props: PodcastProps}) {
   const fps = 30;
-  // Hook/Intro 已简化掉，时间轴只有 Poster + Main + Outro
+  // 时间轴：Poster + Main + Outro
   const totalSec =
     props.posterDurationSec + props.audioDurationSec + props.outroDurationSec;
   const durationInFrames = Math.max(1, Math.ceil(totalSec * fps));
@@ -79,13 +79,10 @@ export function Preview({props}: {props: PodcastProps}) {
           总长 {Math.round(totalSec)} 秒，{durationInFrames} 帧 @ {fps}fps
           <ul style={{marginTop: 16, paddingLeft: 18, color: '#cbd5e1'}}>
             <li>
-              <span style={{color: '#fbbf24'}}>首帧 {props.posterDurationSec}s</span> 静态封面（上传平台抓这帧）
+              <span style={{color: '#fbbf24'}}>1 帧</span> 首帧封面（平台抓这帧当缩略图）
             </li>
             <li>
-              <span style={{color: '#fbbf24'}}>{props.introDurationSec}s</span> 数字钩子片头
-            </li>
-            <li>
-              <span style={{color: '#fbbf24'}}>{Math.round(props.audioDurationSec)}s</span> 主体
+              <span style={{color: '#fbbf24'}}>{Math.round(props.audioDurationSec)}s</span> 主体（字幕 / 章节图 / 金句）
             </li>
             <li>
               <span style={{color: '#fbbf24'}}>{props.outroDurationSec}s</span> 片尾

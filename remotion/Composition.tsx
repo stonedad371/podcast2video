@@ -21,9 +21,12 @@ const speakerStyleSchema = z.object({
   color: zColor(),
   align: z.enum(['left', 'center', 'right']),
 });
-const chapterSchema = z.object({atSec: z.number(), title: z.string()});
+const chapterSchema = z.object({
+  atSec: z.number(),
+  title: z.string(),
+  imagePrompt: z.string().optional(),
+});
 const quoteSchema = z.object({fromSec: z.number(), durationSec: z.number(), text: z.string()});
-const hookSchema = z.object({number: z.string(), text: z.string()});
 
 export const podcastSchema = z.object({
   audioSrc: z.string(),
@@ -36,13 +39,10 @@ export const podcastSchema = z.object({
   speakers: z.record(z.string(), speakerStyleSchema),
   subtitleOffsetSec: z.number(),
   subtitleTimeScale: z.number(),
-  hook: hookSchema,
   chapters: z.array(chapterSchema),
   chapterImageSrcs: z.array(z.string()),
   quotes: z.array(quoteSchema),
-  hookDurationSec: z.number(),
   posterDurationSec: z.number(),
-  introDurationSec: z.number(),
   outroDurationSec: z.number(),
   audioDurationSec: z.number(),
 });
@@ -56,8 +56,6 @@ const secToFrames = (sec: number, fps: number) => Math.round(sec * fps);
 
 export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   const {fps} = useVideoConfig();
-  // Hook 和 Intro 已简化掉——视频开头只保留 Poster 一帧封面。
-  // hookDurationSec / introDurationSec 仍在 schema 中（向后兼容），但渲染时忽略。
   const posterFrames = secToFrames(props.posterDurationSec, fps);
   const audioFrames = secToFrames(props.audioDurationSec, fps);
   const outroFrames = secToFrames(props.outroDurationSec, fps);
@@ -77,114 +75,6 @@ export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   );
 };
 
-/* ============================================================ */
-const VHook: React.FC<{
-  hook: PodcastProps['hook'];
-  accentColor: string;
-  brand: string;
-}> = ({hook, accentColor, brand}) => {
-  const frame = useCurrentFrame();
-  const {fps, durationInFrames} = useVideoConfig();
-
-  // 数字弹入
-  const numberSpring = spring({
-    frame,
-    fps,
-    config: {damping: 12, stiffness: 180, mass: 0.6},
-  });
-  const numberScale = interpolate(numberSpring, [0, 1], [1.3, 1.0]);
-  const numberOpacity = interpolate(frame, [0, 8], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  // 文本从下淡入
-  const textOpacity = interpolate(frame, [10, 22], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const textY = interpolate(frame, [10, 22], [40, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  // 整体后期淡出，过渡到 Poster
-  const overallOpacity = interpolate(
-    frame,
-    [durationInFrames - 12, durationInFrames],
-    [1, 0],
-    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'},
-  );
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: '#06090f',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '0 60px',
-        fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
-        opacity: overallOpacity,
-      }}
-    >
-      <div
-        style={{
-          color: '#6b7280',
-          fontSize: 26,
-          letterSpacing: 8,
-          fontFamily: '"SF Mono", Menlo, monospace',
-          marginBottom: 48,
-          textTransform: 'uppercase',
-        }}
-      >
-        {brand}
-      </div>
-      <div
-        style={{
-          color: accentColor,
-          fontSize: 280,
-          fontWeight: 900,
-          lineHeight: 1,
-          textAlign: 'center',
-          letterSpacing: -4,
-          opacity: numberOpacity,
-          transform: `scale(${numberScale})`,
-          textShadow: `0 0 80px ${accentColor}66, 0 8px 40px rgba(0,0,0,0.6)`,
-          marginBottom: 56,
-        }}
-      >
-        {hook.number}
-      </div>
-      <div
-        style={{
-          color: '#fff',
-          fontSize: 64,
-          fontWeight: 700,
-          lineHeight: 1.3,
-          textAlign: 'center',
-          maxWidth: 900,
-          opacity: textOpacity,
-          transform: `translateY(${textY}px)`,
-          textShadow: '0 4px 20px rgba(0,0,0,0.7)',
-        }}
-      >
-        {hook.text}
-      </div>
-      <div
-        style={{
-          width: 100,
-          height: 4,
-          backgroundColor: accentColor,
-          marginTop: 40,
-          opacity: textOpacity,
-          boxShadow: `0 0 24px ${accentColor}`,
-        }}
-      />
-    </AbsoluteFill>
-  );
-};
-
-/* ============================================================ */
 const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor, brand}) => (
   <AbsoluteFill style={{backgroundColor: '#06090f'}}>
     <Img src={coverSrc} style={{width: '100%', height: '100%', objectFit: 'cover', opacity: 0.78}} />
@@ -269,96 +159,6 @@ const VPoster: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor
   </AbsoluteFill>
 );
 
-/* ============================================================ */
-const VIntro: React.FC<PodcastProps> = ({coverSrc, title, subtitle, accentColor, brand}) => {
-  const frame = useCurrentFrame();
-  const {fps, durationInFrames} = useVideoConfig();
-  const titleStart = Math.max(0, durationInFrames - 45);
-  const titleSpring = spring({frame: frame - titleStart, fps, from: 0, to: 1, config: {damping: 16}});
-  const subSpring = spring({frame: frame - titleStart - 8, fps, from: 0, to: 1, config: {damping: 16}});
-  const fadeOut = interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  return (
-    <AbsoluteFill style={{backgroundColor: '#06090f', opacity: fadeOut}}>
-      <Img
-        src={coverSrc}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          opacity: 0.42,
-          filter: 'blur(2px)',
-        }}
-      />
-      <AbsoluteFill
-        style={{
-          background: `radial-gradient(circle at 50% 50%, ${accentColor}28, transparent 60%)`,
-        }}
-      />
-      <AbsoluteFill
-        style={{
-          justifyContent: 'center',
-          alignItems: 'center',
-          opacity: titleSpring,
-          padding: '0 60px',
-          fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
-        }}
-      >
-        <div
-          style={{
-            color: accentColor,
-            fontSize: 28,
-            letterSpacing: 4,
-            fontWeight: 800,
-            marginBottom: 28,
-            fontFamily: '"SF Mono", Menlo, monospace',
-          }}
-        >
-          {brand}
-        </div>
-        <div
-          style={{
-            color: '#fff',
-            fontSize: 108,
-            fontWeight: 800,
-            lineHeight: 1.1,
-            textAlign: 'center',
-            transform: `translateY(${(1 - titleSpring) * 30}px)`,
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            color: '#9ca3af',
-            fontSize: 44,
-            marginTop: 24,
-            opacity: subSpring,
-            letterSpacing: 4,
-            textAlign: 'center',
-          }}
-        >
-          {subtitle}
-        </div>
-        <div
-          style={{
-            width: 140,
-            height: 4,
-            backgroundColor: accentColor,
-            marginTop: 48,
-            opacity: subSpring,
-            boxShadow: `0 0 24px ${accentColor}`,
-          }}
-        />
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
-};
-
-/* ============================================================ */
 const VMain: React.FC<PodcastProps> = (props) => {
   const {
     audioSrc,
