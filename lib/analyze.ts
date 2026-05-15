@@ -4,6 +4,7 @@ import {chatCompletion, extractToolArgs} from './minimax-chat';
 
 export type AnalysisResult = {
   title: string;
+  subtitle: string;
   hook: {number: string; text: string};
   chapters: Chapter[];
   quotes: Quote[];
@@ -15,6 +16,8 @@ const SYSTEM_PROMPT = `你是一位资深的播客视频编辑。给你一份带
    - 反例（不要）："交易者访谈"、"播客分享"、"投资经验谈"
    - 正例：'8 年亏货到稳定盈利：交易者的至暗与翻盘'、'被裁那天，我建了月入 10 万的副业'
    - 如果用户已经给了播客标题，可以润色或保留，但要保证最终标题**有信息量**。
+1b. 再给一句**副标题**（6-14 字），是对正标题的进一步补充或好奇钩子，不要重复正标题的关键词。
+   - 例子（正标题→副标题）："8 年亏货到稳定盈利" → "他用一个动作扭转了一切"
 2. 从内容里提取**片头钩子**——观众前 3 秒决定是否继续看，钩子要让人挪不开眼：
    - number: 一个抓眼球的数字或关键短语（最多 6 字符），如 "8 年"、"-95%"、"3 次"、"10 万"。如果内容里没合适数字，用一个反差短词如 "全亏" / "翻盘" / "至暗"
    - text: 一句完整的钩子陈述（10-20 字），围绕 number 展开，制造好奇/反差/紧迫感
@@ -81,6 +84,10 @@ ${transcript}`;
                 type: 'string',
                 description: '8-16 字的中文播客视频标题，要有信息量、点出核心冲突或关键事实',
               },
+              subtitle: {
+                type: 'string',
+                description: '6-14 字的中文副标题，作为正标题的钩子或补充',
+              },
               hook: {
                 type: 'object',
                 description: '片头数字钩子',
@@ -122,7 +129,7 @@ ${transcript}`;
                 },
               },
             },
-            required: ['title', 'hook', 'chapters', 'quotes'],
+            required: ['title', 'subtitle', 'hook', 'chapters', 'quotes'],
           },
         },
       },

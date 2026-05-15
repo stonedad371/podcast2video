@@ -22,8 +22,9 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const audio = form.get('audio');
   const srt = form.get('srt');
-  const title = (form.get('title') as string | null) || '播客标题';
-  const subtitle = (form.get('subtitle') as string | null) || '一句话副标题';
+  // 留空交给 analyze 阶段让 LLM 自动生成，不在这里塞占位文字
+  const title = ((form.get('title') as string | null) ?? '').trim();
+  const subtitle = ((form.get('subtitle') as string | null) ?? '').trim();
 
   if (!(audio instanceof File) || !(srt instanceof File)) {
     return NextResponse.json({error: '需要同时上传 audio 和 srt 两个文件'}, {status: 400});

@@ -120,14 +120,14 @@ export function UploadZone({onUploaded}: {onUploaded: (job: UploadResult) => voi
       <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
         <input
           type="text"
-          placeholder="视频标题（可留空，默认「播客标题」）"
+          placeholder="视频标题（可留空，AI 自动生成）"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           style={inputStyle}
         />
         <input
           type="text"
-          placeholder="副标题（可留空）"
+          placeholder="副标题（可留空，AI 自动生成）"
           value={subtitle}
           onChange={(e) => setSubtitle(e.target.value)}
           style={inputStyle}
