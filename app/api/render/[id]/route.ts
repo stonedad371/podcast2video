@@ -4,7 +4,7 @@ import {promises as fs} from 'node:fs';
 import {getJob, updateJob, OUTPUT_DIR, ensureDirs} from '@/lib/jobs';
 import {renderVideo} from '@/lib/render';
 import {ensureChapterImages} from '@/lib/chapter-images';
-import {loadKeys, getBrand} from '@/lib/config';
+import {loadKeys, getBrand, getSubtitleOffset} from '@/lib/config';
 import type {PodcastProps} from '@/remotion/Composition';
 
 export const runtime = 'nodejs';
@@ -14,6 +14,7 @@ function buildProps(
   job: Awaited<ReturnType<typeof getJob>>,
   baseUrl: string,
   brand: string,
+  subtitleOffsetSec: number,
 ): PodcastProps {
   if (!job) throw new Error('no job');
   if (!job.cover) throw new Error('封面图还没生成，请先在主页生成封面');
@@ -37,9 +38,8 @@ function buildProps(
     brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
-    // ASR 出的 SRT 通常比真实"开口听感"早 200-300ms（声波振动就标 cue 起点），
-    // 默认补偿 +0.2s 让字幕跟声音听起来对齐
-    subtitleOffsetSec: 0.2,
+    // ASR 出的 SRT 通常比"开口听感"早 200-300ms，用户在设置里可调
+    subtitleOffsetSec,
     subtitleTimeScale: 1,
     chapters: job.config.chapters,
     quotes: job.config.quotes,
@@ -72,9 +72,10 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   const outputPath = path.join(outDir, 'video.mp4');
 
   const brand = await getBrand();
+  const subtitleOffsetSec = await getSubtitleOffset();
   // 提前 build 一次仅为校验（封面是否就绪等）；后台 IIFE 里会重新读 job 再 build。
   try {
-    buildProps(job, origin, brand);
+    buildProps(job, origin, brand, subtitleOffsetSec);
   } catch (err) {
     return NextResponse.json({error: (err as Error).message}, {status: 400});
   }
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
       // 章节图齐了再用最新 job + chapters build inputProps，传给 Remotion
       const finalJob = await getJob(id);
       if (!finalJob) throw new Error('job 在 bundle 前消失了');
-      const inputProps = buildProps(finalJob, origin, brand);
+      const inputProps = buildProps(finalJob, origin, brand, subtitleOffsetSec);
 
       await updateJob(id, (j) => ({
         render: {

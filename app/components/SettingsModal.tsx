@@ -5,12 +5,14 @@ import {useEffect, useState} from 'react';
 type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
   brand: string;
+  subtitleOffsetSec: number;
 };
 
 export function SettingsModal({open, onClose}: {open: boolean; onClose: () => void}) {
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [minimaxKey, setMinimaxKey] = useState('');
   const [brandInput, setBrandInput] = useState('');
+  const [offsetInput, setOffsetInput] = useState(0.2);
   const [testResult, setTestResult] = useState<{ok: boolean; msg: string} | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -24,6 +26,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
       .then((c: ConfigState) => {
         setConfig(c);
         setBrandInput(c.brand);
+        setOffsetInput(c.subtitleOffsetSec);
       });
     setAutoRender(localStorage.getItem('autoRender') === 'true');
   }, [open]);
@@ -40,9 +43,10 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
     setTestResult(null);
     setSaveToast(null);
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, string | number> = {};
       if (minimaxKey) body.minimax = minimaxKey;
       if (brandInput !== config?.brand) body.brand = brandInput;
+      if (offsetInput !== config?.subtitleOffsetSec) body.subtitleOffsetSec = offsetInput;
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -52,6 +56,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
       const data: ConfigState = await res.json();
       setConfig(data);
       setBrandInput(data.brand);
+      setOffsetInput(data.subtitleOffsetSec);
       setMinimaxKey('');
       setSaveToast('✓ 已保存');
       setTimeout(() => setSaveToast(null), 2500);
@@ -318,6 +323,81 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             borderRadius: 10,
           }}
         >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              marginBottom: 8,
+            }}
+          >
+            <div style={{fontSize: 14, fontWeight: 600, color: '#e5e7eb'}}>字幕时间补偿</div>
+            <div
+              style={{
+                fontSize: 13,
+                fontFamily: '"SF Mono", Menlo, monospace',
+                color: '#fbbf24',
+                fontWeight: 700,
+              }}
+            >
+              {offsetInput > 0 ? '+' : ''}
+              {offsetInput.toFixed(2)} 秒
+            </div>
+          </div>
+          <div style={{color: '#9ca3af', fontSize: 12, marginBottom: 12, lineHeight: 1.5}}>
+            字幕比声音早出现 → 调高（往右）；字幕比声音晚 → 调低（往左）。
+            <br />
+            默认 +0.20s 补偿 ASR 工具普遍的字幕提前。
+          </div>
+          <input
+            type="range"
+            min={-1}
+            max={1}
+            step={0.05}
+            value={offsetInput}
+            onChange={(e) => setOffsetInput(Number(e.target.value))}
+            style={{width: '100%', accentColor: '#fbbf24'}}
+          />
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 11,
+              color: '#6b7280',
+              fontFamily: 'monospace',
+              marginTop: 4,
+            }}
+          >
+            <span>-1.0s (提前)</span>
+            <span>0</span>
+            <span>+1.0s (延后)</span>
+          </div>
+          <button
+            onClick={() => setOffsetInput(0.2)}
+            style={{
+              marginTop: 10,
+              padding: '4px 10px',
+              background: 'transparent',
+              border: '1px solid #374151',
+              borderRadius: 6,
+              color: '#9ca3af',
+              cursor: 'pointer',
+              fontSize: 11,
+            }}
+          >
+            恢复默认 +0.20s
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            padding: 16,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid #374151',
+            borderRadius: 10,
+          }}
+        >
           <label
             style={{
               display: 'flex',
@@ -380,7 +460,8 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
           </button>
           {(() => {
             const brandChanged = brandInput !== (config?.brand ?? '');
-            const nothingToSave = !minimaxKey && !brandChanged;
+            const offsetChanged = offsetInput !== (config?.subtitleOffsetSec ?? 0.2);
+            const nothingToSave = !minimaxKey && !brandChanged && !offsetChanged;
             const disabled = saving || nothingToSave;
             return (
               <button

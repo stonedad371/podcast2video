@@ -12,9 +12,11 @@ export type ApiKeys = {
 
 export type Preferences = {
   brand?: string;
+  subtitleOffsetSec?: number; // 字幕时间补偿（秒）：正值=字幕延后；负值=字幕提前
 };
 
 export const DEFAULT_BRAND = 'podcast.cab';
+export const DEFAULT_SUBTITLE_OFFSET = 0.2;
 
 export async function loadKeys(): Promise<ApiKeys> {
   try {
@@ -76,10 +78,19 @@ export async function savePrefs(prefs: Preferences): Promise<void> {
     if (trimmed === '') delete merged.brand;
     else merged.brand = trimmed;
   }
+  if (prefs.subtitleOffsetSec !== undefined) {
+    // clamp 防极端值
+    merged.subtitleOffsetSec = Math.max(-2, Math.min(2, Number(prefs.subtitleOffsetSec) || 0));
+  }
   await fs.writeFile(PREFS_FILE, JSON.stringify(merged, null, 2));
 }
 
 export async function getBrand(): Promise<string> {
   const prefs = await loadPrefs();
   return prefs.brand || DEFAULT_BRAND;
+}
+
+export async function getSubtitleOffset(): Promise<number> {
+  const prefs = await loadPrefs();
+  return prefs.subtitleOffsetSec ?? DEFAULT_SUBTITLE_OFFSET;
 }

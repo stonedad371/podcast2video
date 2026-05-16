@@ -12,6 +12,7 @@ import type {PodcastProps} from '@/remotion/Composition';
 type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
   brand: string;
+  subtitleOffsetSec: number;
 };
 
 export default function Home() {
@@ -369,7 +370,11 @@ export default function Home() {
 
           {fullJob &&
             (() => {
-              const previewProps = buildPreviewProps(fullJob, config?.brand ?? 'podcast.cab');
+              const previewProps = buildPreviewProps(
+                fullJob,
+                config?.brand ?? 'podcast.cab',
+                config?.subtitleOffsetSec ?? 0.2,
+              );
               return previewProps ? <Preview props={previewProps} /> : null;
             })()}
 
@@ -477,7 +482,11 @@ type FullJob = {
   cover?: {path: string; sizeBytes: number};
 };
 
-function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
+function buildPreviewProps(
+  job: FullJob,
+  brand: string,
+  subtitleOffsetSec: number,
+): PodcastProps | null {
   if (!job.cover) return null;
   const audioExt = job.audio.filename.split('.').pop() || 'mp3';
   const srtExt = job.srt.filename.split('.').pop() || 'srt';
@@ -500,8 +509,8 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
-    // 跟 render route 一致：补偿 ASR 工具普遍的字幕提前 200-300ms
-    subtitleOffsetSec: 0.2,
+    // 用户在设置里可调；从 config 透传过来
+    subtitleOffsetSec,
     subtitleTimeScale: 1,
     chapters: job.config.chapters,
     chapterImageSrcs: job.config.chapters.map(
