@@ -37,8 +37,9 @@ function buildProps(
     brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
-    subtitleOffsetSec: 0,
-    // 强制 1：忽略历史 job 里存的 scale（老算法 1.0124 等会让字幕越后越偏），按 SRT 严格走
+    // ASR 出的 SRT 通常比真实"开口听感"早 200-300ms（声波振动就标 cue 起点），
+    // 默认补偿 +0.2s 让字幕跟声音听起来对齐
+    subtitleOffsetSec: 0.2,
     subtitleTimeScale: 1,
     chapters: job.config.chapters,
     quotes: job.config.quotes,

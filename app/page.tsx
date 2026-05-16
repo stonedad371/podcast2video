@@ -500,8 +500,8 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     brand,
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
-    subtitleOffsetSec: 0,
-    // 强制 1，跟 render route 一致——字幕严格按 SRT 绝对时间戳，不再校准拉伸
+    // 跟 render route 一致：补偿 ASR 工具普遍的字幕提前 200-300ms
+    subtitleOffsetSec: 0.2,
     subtitleTimeScale: 1,
     chapters: job.config.chapters,
     chapterImageSrcs: job.config.chapters.map(
