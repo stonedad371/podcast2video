@@ -1,5 +1,7 @@
 # podcast.cab · 播客视频生成器
 
+[![License: MIT](https://img.shields.io/github/license/stonedad371/podcast2video?color=blue)](LICENSE) [![Demo](https://img.shields.io/badge/demo-podcast.cab-ff6b6b)](https://podcast.cab) [![Stars](https://img.shields.io/github/stars/stonedad371/podcast2video?style=social)](https://github.com/stonedad371/podcast2video/stargazers)
+
 [**podcast.cab**](https://podcast.cab) 出品。一份 mp3 + SRT 字幕 → 一条可发布到抖音 / 小红书 / 视频号 / B 站 / YouTube 的短视频，外送一套发布文案。AI 全自动、完全本地。
 
 支持 **9:16 竖屏 / 1:1 方形 / 16:9 横屏** 三种比例。
