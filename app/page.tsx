@@ -501,17 +501,13 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
     subtitleOffsetSec: 0,
-    subtitleTimeScale: job.computed.subtitleTimeScale,
+    // 强制 1，跟 render route 一致——字幕严格按 SRT 绝对时间戳，不再校准拉伸
+    subtitleTimeScale: 1,
     chapters: job.config.chapters,
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `/api/chapter-images/${job.id}/${i}/image`,
     ),
-    // quotes 走和 cue 一样的 scale，避免 inQuote 判断错位
-    quotes: job.config.quotes.map((q) => ({
-      ...q,
-      fromSec: q.fromSec * job.computed.subtitleTimeScale,
-      durationSec: q.durationSec * job.computed.subtitleTimeScale,
-    })),
+    quotes: job.config.quotes,
     posterDurationSec: 0.6,
     outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,

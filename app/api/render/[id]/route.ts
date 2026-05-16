@@ -38,15 +38,10 @@ function buildProps(
     accentColor: job.config.accentColor || '#fbbf24',
     speakers,
     subtitleOffsetSec: 0,
-    subtitleTimeScale: job.computed.subtitleTimeScale,
+    // 强制 1：忽略历史 job 里存的 scale（老算法 1.0124 等会让字幕越后越偏），按 SRT 严格走
+    subtitleTimeScale: 1,
     chapters: job.config.chapters,
-    // quotes 跟 cue 时间用同一坐标系，scale 一致——前端 VSubtitleLine 已经把 cue 时间
-    // 走过 scale，这里 quotes 也乘一下，让 inQuote 判断不错位
-    quotes: job.config.quotes.map((q) => ({
-      ...q,
-      fromSec: q.fromSec * job.computed.subtitleTimeScale,
-      durationSec: q.durationSec * job.computed.subtitleTimeScale,
-    })),
+    quotes: job.config.quotes,
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
