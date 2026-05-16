@@ -53,6 +53,139 @@ export type PodcastProps = z.infer<typeof podcastSchema>;
 const CHAPTER_BANNER_SEC = 3.5;
 const secToFrames = (sec: number, fps: number) => Math.round(sec * fps);
 
+// 根据 Composition 尺寸判断当前是哪种 layout（用 width/height 比例）
+type LayoutMode = 'vertical' | 'square' | 'horizontal';
+function getLayoutMode(width: number, height: number): LayoutMode {
+  if (width > height * 1.3) return 'horizontal';
+  if (Math.abs(width - height) < 100) return 'square';
+  return 'vertical';
+}
+function useLayoutMode(): LayoutMode {
+  const {width, height} = useVideoConfig();
+  return getLayoutMode(width, height);
+}
+
+// 每个 layout 下各元素的关键位置 / 字号 / 边距
+type LayoutSpec = {
+  brandBarTop: number; // ● REC + brand 这一行
+  titleTop: number; // 视频标题中央位置
+  titleFontSize: number;
+  titleMaxWidth: number;
+  titleLeft: number;
+  titleRight: number;
+  persistentChapterTop: number;
+  chapterBannerTop: number;
+  waveformTop: number;
+  waveformHeight: number;
+  waveformBarMaxH: number;
+  waveformBarGain: number; // visualizeAudio 输出 0-1，乘这个数得到 bar 像素高度
+  waveformWidth: number;
+  waveformBarWidth: number;
+  subtitleTop: number;
+  subtitleHeight: number;
+  subtitleLeft: number;
+  subtitleRight: number;
+  subtitleFontSize: number;
+  subtitleSpeakerFontSize: number;
+  subtitlePadding: string;
+  subtitleMaxHeight: number;
+  keyQuoteTop: number;
+  keyQuoteMaxWidth: number;
+  keyQuoteFontSize: number;
+  progressBarBottom: number;
+};
+
+const LAYOUTS: Record<LayoutMode, LayoutSpec> = {
+  vertical: {
+    brandBarTop: 120,
+    titleTop: 180,
+    titleFontSize: 64,
+    titleMaxWidth: 960,
+    titleLeft: 60,
+    titleRight: 60,
+    persistentChapterTop: 360,
+    chapterBannerTop: 540,
+    waveformTop: 750,
+    waveformHeight: 110,
+    waveformBarMaxH: 96,
+    waveformBarGain: 360,
+    waveformWidth: 900,
+    waveformBarWidth: 22,
+    subtitleTop: 900,
+    subtitleHeight: 540,
+    subtitleLeft: 60,
+    subtitleRight: 60,
+    subtitleFontSize: 64,
+    subtitleSpeakerFontSize: 28,
+    subtitlePadding: '32px 40px',
+    subtitleMaxHeight: 460,
+    keyQuoteTop: 900,
+    keyQuoteMaxWidth: 920,
+    keyQuoteFontSize: 76,
+    progressBarBottom: 80,
+  },
+  square: {
+    brandBarTop: 50,
+    titleTop: 100,
+    titleFontSize: 48,
+    titleMaxWidth: 920,
+    titleLeft: 80,
+    titleRight: 80,
+    persistentChapterTop: 220,
+    chapterBannerTop: 320,
+    waveformTop: 470,
+    waveformHeight: 80,
+    waveformBarMaxH: 68,
+    waveformBarGain: 240,
+    waveformWidth: 800,
+    waveformBarWidth: 18,
+    subtitleTop: 580,
+    subtitleHeight: 380,
+    subtitleLeft: 60,
+    subtitleRight: 60,
+    subtitleFontSize: 52,
+    subtitleSpeakerFontSize: 22,
+    subtitlePadding: '24px 32px',
+    subtitleMaxHeight: 320,
+    keyQuoteTop: 580,
+    keyQuoteMaxWidth: 880,
+    keyQuoteFontSize: 60,
+    progressBarBottom: 50,
+  },
+  horizontal: {
+    brandBarTop: 50,
+    titleTop: 90,
+    titleFontSize: 56,
+    titleMaxWidth: 1500,
+    titleLeft: 200,
+    titleRight: 200,
+    persistentChapterTop: 220,
+    chapterBannerTop: 310,
+    waveformTop: 760,
+    waveformHeight: 80,
+    waveformBarMaxH: 68,
+    waveformBarGain: 240,
+    waveformWidth: 1500,
+    waveformBarWidth: 30,
+    subtitleTop: 850,
+    subtitleHeight: 180,
+    subtitleLeft: 100,
+    subtitleRight: 100,
+    subtitleFontSize: 48,
+    subtitleSpeakerFontSize: 22,
+    subtitlePadding: '20px 32px',
+    subtitleMaxHeight: 160,
+    keyQuoteTop: 380,
+    keyQuoteMaxWidth: 1400,
+    keyQuoteFontSize: 64,
+    progressBarBottom: 50,
+  },
+};
+
+function useLayout(): LayoutSpec {
+  return LAYOUTS[useLayoutMode()];
+}
+
 export const PodcastVertical: React.FC<PodcastProps> = (props) => {
   const {fps} = useVideoConfig();
   const posterFrames = secToFrames(props.posterDurationSec, fps);
@@ -455,51 +588,56 @@ const VBrandBar: React.FC<{accentColor: string; title: string; brand: string}> =
   accentColor,
   title,
   brand,
-}) => (
-  <>
-    <div
-      style={{
-        position: 'absolute',
-        top: 120,
-        left: 60,
-        right: 60,
-        display: 'flex',
-        justifyContent: 'space-between',
-        color: '#cbd5e1',
-        fontSize: 26,
-        letterSpacing: 6,
-        fontFamily: '"SF Mono", Menlo, monospace',
-        textTransform: 'uppercase',
-      }}
-    >
-      <span style={{color: '#f87171'}}>● REC</span>
-      <span style={{color: accentColor, fontWeight: 700}}>{brand}</span>
-    </div>
-    <div
-      style={{
-        position: 'absolute',
-        top: 180,
-        left: 60,
-        right: 60,
-        textAlign: 'center',
-        color: '#fff',
-        fontSize: 64,
-        fontWeight: 800,
-        letterSpacing: 2,
-        lineHeight: 1.15,
-        textShadow: '0 4px 24px rgba(0,0,0,0.85)',
-        fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
-        // 最多 2 行，超长 ellipsis——下面 480 处有章节胶囊，不能让标题撞上去
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-      }}
-    >
-      {title}
-    </div>
-  </>
-);
+}) => {
+  const L = useLayout();
+  return (
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          top: L.brandBarTop,
+          left: L.titleLeft,
+          right: L.titleRight,
+          display: 'flex',
+          justifyContent: 'space-between',
+          color: '#cbd5e1',
+          fontSize: 26,
+          letterSpacing: 6,
+          fontFamily: '"SF Mono", Menlo, monospace',
+          textTransform: 'uppercase',
+        }}
+      >
+        <span style={{color: '#f87171'}}>● REC</span>
+        <span style={{color: accentColor, fontWeight: 700}}>{brand}</span>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          top: L.titleTop,
+          left: L.titleLeft,
+          right: L.titleRight,
+          textAlign: 'center',
+          color: '#fff',
+          fontSize: L.titleFontSize,
+          fontWeight: 800,
+          letterSpacing: 2,
+          lineHeight: 1.15,
+          textShadow: '0 4px 24px rgba(0,0,0,0.85)',
+          fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          maxWidth: L.titleMaxWidth,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+        }}
+      >
+        {title}
+      </div>
+    </>
+  );
+};
 
 const VPersistentChapterLabel: React.FC<{
   chapters: PodcastProps['chapters'];
@@ -507,6 +645,7 @@ const VPersistentChapterLabel: React.FC<{
 }> = ({chapters, accentColor}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const L = useLayout();
   const curSec = frame / fps;
   let activeIdx = -1;
   for (let i = 0; i < chapters.length; i++) {
@@ -515,8 +654,6 @@ const VPersistentChapterLabel: React.FC<{
   }
   if (activeIdx < 0) return null;
   const active = chapters[activeIdx];
-  // 章节切入瞬间 VChapterBanner 占据顶部 3.5s——这里让持续标签等 banner 谢幕后再进场，
-  // 避免顶部「品牌条 + 标题 + 持续标签 + 章节胶囊」四样同时拥挤。
   const enterSec = curSec - active.atSec - CHAPTER_BANNER_SEC;
   const enter = Math.min(1, Math.max(0, enterSec / 0.6));
   const slideY = (1 - enter) * 24;
@@ -524,9 +661,9 @@ const VPersistentChapterLabel: React.FC<{
     <div
       style={{
         position: 'absolute',
-        top: 360,
-        left: 60,
-        right: 60,
+        top: L.persistentChapterTop,
+        left: L.titleLeft,
+        right: L.titleRight,
         display: 'flex',
         justifyContent: 'center',
         opacity: enter,
@@ -567,6 +704,7 @@ const nextPow2 = (n: number) => {
 const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc, accentColor}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const L = useLayout();
   const audioData = useAudioData(audioSrc);
   const bars = useMemo(() => {
     // 32 个频段：低频→高频。直接画的话，低频集中左侧、高频在右，看着像"只有左边在动"。
@@ -587,10 +725,10 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
     <div
       style={{
         position: 'absolute',
-        top: 750,
+        top: L.waveformTop,
         left: 0,
         right: 0,
-        height: 110,
+        height: L.waveformHeight,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -599,16 +737,15 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
       <div
         style={{
           display: 'flex',
-          gap: 10,
+          gap: Math.max(6, L.waveformBarWidth * 0.4),
           alignItems: 'center',
-          width: 900,
+          width: L.waveformWidth,
           height: '100%',
           justifyContent: 'center',
         }}
       >
         {bars.map((v, i) => {
-          // 字幕背景会盖住波形 → 把波形挪到字幕上方 + 缩矮，避开 overlap
-          const h = Math.max(6, Math.min(96, v * 360));
+          const h = Math.max(6, Math.min(L.waveformBarMaxH, v * L.waveformBarGain));
           return (
             <div
               key={i}
@@ -616,19 +753,19 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
             >
               <div
                 style={{
-                  width: 22,
+                  width: L.waveformBarWidth,
                   height: h,
                   background: `linear-gradient(180deg, ${accentColor}, ${accentColor}aa)`,
-                  borderRadius: '11px 11px 0 0',
+                  borderRadius: `${L.waveformBarWidth / 2}px ${L.waveformBarWidth / 2}px 0 0`,
                   boxShadow: `0 0 28px ${accentColor}aa`,
                 }}
               />
               <div
                 style={{
-                  width: 22,
+                  width: L.waveformBarWidth,
                   height: h * 0.45,
                   background: `linear-gradient(0deg, transparent, ${accentColor}66)`,
-                  borderRadius: '0 0 11px 11px',
+                  borderRadius: `0 0 ${L.waveformBarWidth / 2}px ${L.waveformBarWidth / 2}px`,
                   opacity: 0.5,
                 }}
               />
@@ -649,6 +786,7 @@ const VSubtitleLine: React.FC<{
 }> = ({text, duration, style, cueStartSec, quotes}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const L = useLayout();
   const baseOpacity = interpolate(frame, [0, 4, duration - 4, duration], [0, 1, 1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
@@ -664,10 +802,10 @@ const VSubtitleLine: React.FC<{
     <div
       style={{
         position: 'absolute',
-        top: 900,
-        left: 60,
-        right: 60,
-        height: 540,
+        top: L.subtitleTop,
+        left: L.subtitleLeft,
+        right: L.subtitleRight,
+        height: L.subtitleHeight,
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
@@ -678,9 +816,9 @@ const VSubtitleLine: React.FC<{
           width: '100%',
           backgroundColor: 'rgba(6, 9, 15, 0.92)',
           color: '#fff',
-          fontSize: 64,
+          fontSize: L.subtitleFontSize,
           lineHeight: 1.4,
-          padding: '32px 40px',
+          padding: L.subtitlePadding,
           borderRadius: 20,
           opacity,
           transform: `translateY(${y}px)`,
@@ -689,7 +827,7 @@ const VSubtitleLine: React.FC<{
           whiteSpace: 'pre-wrap',
           borderTop: `4px solid ${style.color}`,
           boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
-          maxHeight: 460,
+          maxHeight: L.subtitleMaxHeight,
           overflow: 'hidden',
         }}
       >
@@ -697,7 +835,7 @@ const VSubtitleLine: React.FC<{
           <div
             style={{
               color: style.color,
-              fontSize: 28,
+              fontSize: L.subtitleSpeakerFontSize,
               fontWeight: 700,
               letterSpacing: 4,
               marginBottom: 14,
@@ -720,6 +858,7 @@ const VChapterBanner: React.FC<{index: number; title: string; accentColor: strin
 }) => {
   const frame = useCurrentFrame();
   const {durationInFrames} = useVideoConfig();
+  const L = useLayout();
   const slideIn = interpolate(frame, [0, 12], [-50, 0], {extrapolateRight: 'clamp'});
   const opacity = interpolate(
     frame,
@@ -731,9 +870,9 @@ const VChapterBanner: React.FC<{index: number; title: string; accentColor: strin
     <div
       style={{
         position: 'absolute',
-        top: 540,
-        left: 60,
-        right: 60,
+        top: L.chapterBannerTop,
+        left: L.titleLeft,
+        right: L.titleRight,
         display: 'flex',
         justifyContent: 'center',
         opacity,
@@ -787,33 +926,32 @@ const VChapterBanner: React.FC<{index: number; title: string; accentColor: strin
 const VKeyQuote: React.FC<{text: string; accentColor: string}> = ({text, accentColor}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
+  const L = useLayout();
   const fadeIn = spring({frame, fps, from: 0, to: 1, config: {damping: 16, stiffness: 110}});
   const fadeOut = interpolate(frame, [durationInFrames - 20, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
   const opacity = fadeIn * fadeOut;
-  // 金句不再全屏暗化遮盖——做成中段卡片（字幕在金句时间窗已被 hidden，让出位置）
   return (
     <div
       style={{
         position: 'absolute',
-        top: 900,
-        left: 60,
-        right: 60,
+        top: L.keyQuoteTop,
+        left: L.subtitleLeft,
+        right: L.subtitleRight,
         display: 'flex',
         justifyContent: 'center',
         opacity,
         transform: `translateY(${(1 - fadeIn) * 30}px)`,
         fontFamily: '"Noto Serif SC", "PingFang SC", serif',
-        // 金句和字幕容器共占 top:900——显式拔高 z-index 避免 inQuote 偶发错位时字幕盖金句
         zIndex: 10,
       }}
     >
       <div
         style={{
           position: 'relative',
-          maxWidth: 920,
+          maxWidth: L.keyQuoteMaxWidth,
           padding: '40px 56px',
           backgroundColor: 'rgba(6, 9, 15, 0.92)',
           borderRadius: 22,
@@ -839,7 +977,7 @@ const VKeyQuote: React.FC<{text: string; accentColor: string}> = ({text, accentC
         <div
           style={{
             color: '#fff',
-            fontSize: 76,
+            fontSize: L.keyQuoteFontSize,
             fontWeight: 700,
             lineHeight: 1.3,
             textAlign: 'center',
@@ -875,6 +1013,7 @@ const VProgressBar: React.FC<{audioDurationSec: number; accentColor: string}> = 
 }) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const L = useLayout();
   const curSec = Math.min(audioDurationSec, frame / fps);
   const progress = Math.max(0, Math.min(1, curSec / audioDurationSec));
   return (
@@ -882,9 +1021,9 @@ const VProgressBar: React.FC<{audioDurationSec: number; accentColor: string}> = 
       <div
         style={{
           position: 'absolute',
-          left: 60,
-          right: 60,
-          bottom: 80,
+          left: L.subtitleLeft,
+          right: L.subtitleRight,
+          bottom: L.progressBarBottom,
           display: 'flex',
           justifyContent: 'space-between',
           color: '#cbd5e1',
