@@ -53,11 +53,18 @@ export function parseSrt(input: string): Cue[] {
   return cues;
 }
 
-// 字幕时间轴永远不拉伸——ASR 出的 SRT 时间戳是绝对秒数，应该严格按它显示。
-// 片头/片尾音乐导致 lastCueEnd != audioDuration 是**正常现象**，不是 SRT bug。
-// 之前 audio/lastCueEnd 这套算法把字幕拉伸 1-2%，越靠后字幕越偏 → 用户看到"字幕超前/滞后"。
-// 留这个函数是为了向后兼容，但永远返回 1。
-export const computeTimeScale = (_audioDurationSec: number, _cues: Cue[]): number => 1;
+// 字幕时间轴校准：scale = audio / lastCueEnd
+// 用户选择让末尾对齐（B 方案）——线性拉伸字幕，让最后一条 cue 的 endSec 落在 audioDurationSec 上。
+// 代价：所有 cue 都被线性延后，开头偏移很小（10s 处偏 45ms 几乎不可见），但末尾对齐。
+// 极端 ratio（<0.5 或 >2.0）说明 SRT 时间戳异常，不强行拉伸。
+export const computeTimeScale = (audioDurationSec: number, cues: Cue[]): number => {
+  if (cues.length === 0 || audioDurationSec <= 0) return 1;
+  const lastEnd = cues[cues.length - 1].endSec;
+  if (lastEnd <= 0) return 1;
+  const ratio = audioDurationSec / lastEnd;
+  if (ratio < 0.5 || ratio > 2.0) return 1;
+  return ratio;
+};
 
 export const uniqueSpeakers = (cues: Cue[]): string[] => {
   const set = new Set<string>();

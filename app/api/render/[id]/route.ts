@@ -40,9 +40,15 @@ function buildProps(
     speakers,
     // ASR 出的 SRT 通常比"开口听感"早 200-300ms，用户在设置里可调
     subtitleOffsetSec,
-    subtitleTimeScale: 1,
+    // 线性拉伸让 SRT 末尾对齐音频末尾（避免末尾 ~1s 漂移）
+    subtitleTimeScale: job.computed.subtitleTimeScale,
     chapters: job.config.chapters,
-    quotes: job.config.quotes,
+    // quotes 跟 cue 用同一时间轴 → 一起乘 scale 才能让 inQuote 判断不错位
+    quotes: job.config.quotes.map((q) => ({
+      ...q,
+      fromSec: q.fromSec * job.computed.subtitleTimeScale,
+      durationSec: q.durationSec * job.computed.subtitleTimeScale,
+    })),
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),

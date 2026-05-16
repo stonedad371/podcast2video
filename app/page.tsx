@@ -511,12 +511,17 @@ function buildPreviewProps(
     speakers,
     // 用户在设置里可调；从 config 透传过来
     subtitleOffsetSec,
-    subtitleTimeScale: 1,
+    // 线性拉伸让 SRT 末尾对齐音频末尾
+    subtitleTimeScale: job.computed.subtitleTimeScale,
     chapters: job.config.chapters,
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `/api/chapter-images/${job.id}/${i}/image`,
     ),
-    quotes: job.config.quotes,
+    quotes: job.config.quotes.map((q) => ({
+      ...q,
+      fromSec: q.fromSec * job.computed.subtitleTimeScale,
+      durationSec: q.durationSec * job.computed.subtitleTimeScale,
+    })),
     posterDurationSec: 0.6,
     outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,
