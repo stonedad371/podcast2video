@@ -18,7 +18,15 @@ type StatusResponse = {
   output: {sizeBytes: number} | null;
 };
 
-export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boolean}) {
+export function RenderPanel({
+  jobId,
+  canRender,
+  gateReason,
+}: {
+  jobId: string;
+  canRender: boolean;
+  gateReason?: string;
+}) {
   const [state, setState] = useState<StatusResponse | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -114,7 +122,7 @@ export function RenderPanel({jobId, canRender}: {jobId: string; canRender: boole
               : state?.render?.status === 'done'
                 ? '重新生成'
                 : !canRender
-                  ? '先准备好封面'
+                  ? gateReason ?? '先准备好封面'
                   : '🎬 开始生成'}
           </button>
         )}

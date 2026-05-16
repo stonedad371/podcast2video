@@ -6,6 +6,7 @@ import {JobSummary} from './components/JobSummary';
 import {SettingsModal} from './components/SettingsModal';
 import {Preview} from './components/Preview';
 import {RenderPanel} from './components/RenderPanel';
+import {ChapterImagesPanel, type ChapterImageInfo} from './components/ChapterImagesPanel';
 import type {PodcastProps} from '@/remotion/Composition';
 
 type ConfigState = {
@@ -27,12 +28,18 @@ export default function Home() {
     imagesDone?: number;
     imagesTotal?: number;
   } | null>(null);
+  const [chapterImages, setChapterImages] = useState<ChapterImageInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // 防 strictMode 双跑 / refreshConfig 触发 effect 重跑导致重复 POST analyze + cover
   const processedJobIdRef = useRef<string | null>(null);
   // autoRender 每个 job 只触发一次
   const autoRenderTriggeredRef = useRef<string | null>(null);
+  // 章节图 batch 也每 job 只触发一次
+  const chapterImagesKickedRef = useRef<string | null>(null);
+
+  const chapterImagesReady =
+    chapterImages.length > 0 && chapterImages.every((c) => c.status === 'done');
 
   const refreshConfig = () =>
     fetch('/api/config')
@@ -126,15 +133,21 @@ export default function Home() {
       }
       if (cancelled || !analyzeOk) return;
 
+      // 分析成功 → 立即异步触发章节图批量生成（独立轮询监控状态）
+      if (chapterImagesKickedRef.current !== job.id) {
+        chapterImagesKickedRef.current = job.id;
+        fetch(`/api/chapter-images/${job.id}`, {method: 'POST', signal: ac.signal}).catch(() => {
+          // 失败不阻塞流程；轮询会显示 failed 状态，用户能点重生
+        });
+      }
+
       setGeneratingCover(true);
-      let coverOk = false;
       try {
         const res = await fetch(`/api/cover/${job.id}`, {method: 'POST', signal: ac.signal});
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) throw new Error(data.error || '生封面失败');
         setFullJob(data.job);
-        coverOk = true;
       } catch (e) {
         if (!cancelled) {
           setError((prev) =>
@@ -146,27 +159,7 @@ export default function Home() {
       } finally {
         if (!cancelled) setGeneratingCover(false);
       }
-
-      // 前序都成功 + 用户开了"自动渲染" + 该 job 还没自动触发过 → 触发渲染
-      if (
-        !cancelled &&
-        coverOk &&
-        localStorage.getItem('autoRender') === 'true' &&
-        autoRenderTriggeredRef.current !== job.id
-      ) {
-        autoRenderTriggeredRef.current = job.id;
-        try {
-          await fetch(`/api/render/${job.id}`, {method: 'POST', signal: ac.signal});
-        } catch (e) {
-          if (!cancelled) {
-            setError((prev) =>
-              prev
-                ? `${prev}；自动渲染启动失败：${(e as Error).message}`
-                : `自动渲染启动失败：${(e as Error).message}`,
-            );
-          }
-        }
-      }
+      // autoRender 不再在这里触发——改由章节图就绪后单独的 effect 决定（见下方）
     };
     run();
     return () => {
@@ -176,12 +169,55 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, hasKey]);
 
+  // 章节图状态轮询——只要有 job 就轮，2s 一次。任一张状态变化就重渲，UI 自动更新缩略图
+  useEffect(() => {
+    if (!job) {
+      setChapterImages([]);
+      return;
+    }
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const data = await fetch(`/api/chapter-images/${job.id}`).then((r) => r.json());
+        if (stopped) return;
+        if (Array.isArray(data.chapters)) setChapterImages(data.chapters);
+      } catch {
+        // 忽略
+      }
+    };
+    tick();
+    const t = setInterval(tick, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [job]);
+
+  // autoRender gate：章节图全部就绪 + autoRender 开 + 本 job 没自动触发过 → POST render
+  useEffect(() => {
+    if (!job) return;
+    if (!chapterImagesReady) return;
+    if (autoRenderTriggeredRef.current === job.id) return;
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem('autoRender') !== 'true') return;
+    autoRenderTriggeredRef.current = job.id;
+    fetch(`/api/render/${job.id}`, {method: 'POST'}).catch((e) => {
+      setError((prev) =>
+        prev
+          ? `${prev}；自动渲染启动失败：${(e as Error).message}`
+          : `自动渲染启动失败：${(e as Error).message}`,
+      );
+    });
+  }, [job, chapterImagesReady]);
+
   const reset = () => {
     setJob(null);
     setFullJob(null);
+    setChapterImages([]);
     setError(null);
     processedJobIdRef.current = null;
     autoRenderTriggeredRef.current = null;
+    chapterImagesKickedRef.current = null;
   };
 
   return (
@@ -327,6 +363,10 @@ export default function Home() {
             <CoverPreview job={fullJob} brand={config?.brand ?? 'podcast.cab'} />
           )}
 
+          {fullJob && chapterImages.length > 0 && (
+            <ChapterImagesPanel jobId={fullJob.id} chapters={chapterImages} />
+          )}
+
           {fullJob &&
             (() => {
               const previewProps = buildPreviewProps(fullJob, config?.brand ?? 'podcast.cab');
@@ -334,7 +374,17 @@ export default function Home() {
             })()}
 
           {fullJob && (
-            <RenderPanel jobId={fullJob.id} canRender={!!fullJob.cover} />
+            <RenderPanel
+              jobId={fullJob.id}
+              canRender={!!fullJob.cover && chapterImagesReady}
+              gateReason={
+                !fullJob.cover
+                  ? '先准备好封面'
+                  : !chapterImagesReady
+                    ? `等章节图就绪（${chapterImages.filter((c) => c.status === 'done').length} / ${chapterImages.length}）`
+                    : undefined
+              }
+            />
           )}
 
           {error && (
