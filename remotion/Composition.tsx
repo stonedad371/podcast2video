@@ -208,7 +208,9 @@ const VMain: React.FC<PodcastProps> = (props) => {
         coverSrc={coverSrc}
         chapters={chapters}
         chapterImageSrcs={chapterImageSrcs}
+        accentColor={accentColor}
       />
+      <VAmbientParticles accentColor={accentColor} />
       <VTopProgress audioDurationSec={audioDurationSec} accentColor={accentColor} chapters={chapters} />
       <VBrandBar accentColor={accentColor} title={title} brand={brand} />
       <VPersistentChapterLabel chapters={chapters} accentColor={accentColor} />
@@ -272,12 +274,21 @@ const VCoverBackground: React.FC<{
   coverSrc: string;
   chapters: PodcastProps['chapters'];
   chapterImageSrcs: string[];
-}> = ({coverSrc, chapters, chapterImageSrcs}) => {
+  accentColor: string;
+}> = ({coverSrc, chapters, chapterImageSrcs, accentColor}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const curSec = frame / fps;
-  // Ken Burns 缓慢 zoom-in：4 分钟 7200 帧累计放大 ~1.6x，避免末尾失真
-  const scale = 1 + frame * 0.00008;
+  // Ken Burns 全局缓慢 zoom-in：4 分钟累计 ~1.6x
+  const globalScale = 1 + frame * 0.00008;
+
+  // 4 个方向让相邻章节图 KB 移动方向不同，cross-fade 时观感像换了视角
+  const directions = [
+    {x: 1, y: 1}, // 右下
+    {x: -1, y: 1}, // 左下
+    {x: 1, y: -1}, // 右上
+    {x: -1, y: -1}, // 左上
+  ];
 
   // 每个章节图作底图的 opacity：从 atSec 起 0.8s 淡入，下一章 atSec 前 0.8s 淡出
   const chapterOpacities = chapters.map((ch, i) => {
@@ -297,9 +308,7 @@ const VCoverBackground: React.FC<{
     return fadeIn * fadeOut;
   });
 
-  // 第一章 atSec 之前 cover 全亮；进入第一章后淡出，让位章节图。
-  // 第一章 atSec=0 时（最常见情况），cover 和 chapter1 同时在前 0.8s 叠加，会有亮闪——
-  // 此时直接关掉 cover，由 chapter1 独显，避免双层叠加。
+  // 第一章 atSec=0 时（最常见情况）直接关 cover，避免双层叠加亮闪
   const firstAt = chapters[0]?.atSec ?? 0;
   const baseCoverOpacity =
     chapters.length === 0
@@ -310,6 +319,17 @@ const VCoverBackground: React.FC<{
             extrapolateLeft: 'clamp',
             extrapolateRight: 'clamp',
           });
+
+  // 章节切换柔光 flash：在每个章节 atSec 后 0.4s 内有个 accent-color 全屏淡光
+  const flashOpacity = chapters
+    .filter((ch) => ch.atSec > 0.1)
+    .reduce((max, ch) => {
+      const v = interpolate(curSec, [ch.atSec - 0.05, ch.atSec + 0.15, ch.atSec + 0.4], [0, 0.28, 0], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+      return Math.max(max, v);
+    }, 0);
 
   return (
     <>
@@ -322,12 +342,21 @@ const VCoverBackground: React.FC<{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            transform: `scale(${scale})`,
+            transform: `scale(${globalScale * 1.05})`,
             opacity: baseCoverOpacity,
           }}
         />
-        {chapterImageSrcs.map((src, i) =>
-          src && chapterOpacities[i] > 0.001 ? (
+        {chapterImageSrcs.map((src, i) => {
+          if (!src || chapterOpacities[i] <= 0.001) return null;
+          const dir = directions[i % directions.length];
+          // 章节内本地 frame：让每章独立做 Ken Burns 平移，方向不同
+          const inChapterSec = Math.max(0, curSec - chapters[i].atSec);
+          // 每秒平移 0.6px，60s 章节末累计 ~36px（视频 1080 宽里 3.3% 移动）
+          const tx = dir.x * inChapterSec * 0.6;
+          const ty = dir.y * inChapterSec * 0.4;
+          // 局部 zoom 让本章更"活"，叠加全局 zoom
+          const localScale = globalScale * (1 + inChapterSec * 0.0003);
+          return (
             <Img
               key={i}
               src={src}
@@ -337,13 +366,22 @@ const VCoverBackground: React.FC<{
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                transform: `scale(${scale})`,
+                transform: `scale(${localScale}) translate(${tx}px, ${ty}px)`,
                 opacity: chapterOpacities[i] * 0.95,
               }}
             />
-          ) : null,
-        )}
+          );
+        })}
       </AbsoluteFill>
+      {flashOpacity > 0.005 && (
+        <AbsoluteFill
+          style={{
+            background: `radial-gradient(circle at center, ${accentColor}, transparent 70%)`,
+            opacity: flashOpacity,
+            mixBlendMode: 'screen',
+          }}
+        />
+      )}
       <AbsoluteFill
         style={{
           background:
@@ -1021,6 +1059,60 @@ const VOutro: React.FC<PodcastProps> = ({title, accentColor, coverSrc}) => {
           })}
         </div>
       </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * 浮动尘埃粒子层——给底图加点"活气"，比 Ken Burns 更柔和的动态元素。
+ * 用确定性 PRNG（Math.sin）生成 28 个粒子的初始位置/大小/速度，
+ * 每帧根据 frame 计算 y 位置（从底向上缓慢漂浮）。
+ */
+const PARTICLE_COUNT = 28;
+const rand = (i: number, salt: number) => {
+  const v = Math.sin((i + 1) * salt) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+const VAmbientParticles: React.FC<{accentColor: string}> = ({accentColor}) => {
+  const frame = useCurrentFrame();
+  const particles = useMemo(
+    () =>
+      Array.from({length: PARTICLE_COUNT}, (_, i) => ({
+        x: rand(i, 12.9898) * 100,
+        initialY: rand(i, 78.233) * 100,
+        size: 2 + rand(i, 39.337) * 5,
+        speed: 0.015 + rand(i, 91.171) * 0.022,
+        baseOpacity: 0.12 + rand(i, 27.611) * 0.25,
+        // 用 frame 偏移生成轻微闪烁
+        flickerSpeed: 0.03 + rand(i, 51.5) * 0.05,
+        flickerPhase: rand(i, 83.1) * Math.PI * 2,
+      })),
+    [],
+  );
+
+  return (
+    <AbsoluteFill style={{pointerEvents: 'none', overflow: 'hidden'}}>
+      {particles.map((p, i) => {
+        const y = (((p.initialY - frame * p.speed) % 100) + 100) % 100;
+        const flicker = 0.6 + 0.4 * Math.sin(frame * p.flickerSpeed + p.flickerPhase);
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: `${p.x}%`,
+              top: `${y}%`,
+              width: p.size,
+              height: p.size,
+              borderRadius: '50%',
+              backgroundColor: accentColor,
+              opacity: p.baseOpacity * flicker,
+              boxShadow: `0 0 ${p.size * 2.5}px ${accentColor}99`,
+            }}
+          />
+        );
+      })}
     </AbsoluteFill>
   );
 };
