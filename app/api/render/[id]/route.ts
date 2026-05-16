@@ -40,11 +40,17 @@ function buildProps(
     subtitleOffsetSec: 0,
     subtitleTimeScale: job.computed.subtitleTimeScale,
     chapters: job.config.chapters,
-    quotes: job.config.quotes,
+    // quotes 跟 cue 时间用同一坐标系，scale 一致——前端 VSubtitleLine 已经把 cue 时间
+    // 走过 scale，这里 quotes 也乘一下，让 inQuote 判断不错位
+    quotes: job.config.quotes.map((q) => ({
+      ...q,
+      fromSec: q.fromSec * job.computed.subtitleTimeScale,
+      durationSec: q.durationSec * job.computed.subtitleTimeScale,
+    })),
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `${baseUrl}/api/chapter-images/${job.id}/${i}/image`,
     ),
-    posterDurationSec: 1 / 30, // 1 帧 @ 30fps：让平台抓得到首帧封面，肉眼几乎察觉不到停留
+    posterDurationSec: 0.6, // 给平台抓首帧 + 用户视觉留一帧封面缓冲，不再硬切
     outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,
   };

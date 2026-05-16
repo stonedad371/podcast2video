@@ -19,13 +19,12 @@ const SYSTEM_PROMPT = `你是一位资深的播客视频编辑。给你一份带
    - 例子（正标题→副标题）："8 年亏货到稳定盈利" → "他用一个动作扭转了一切"
 2. 把整集播客切成 4 到 6 个章节，每个章节给：
    - title：简短有力的中文小标题（10 字以内最好）
-   - imagePrompt：一句**英文** AI 绘图提示词，描述与本章节内容呼应的画面。要求：
-     * cinematic dark editorial illustration 风格
-     * NO text, NO people（避免人脸糊掉）
-     * 抽象象征手法（如蜡烛/山峰/书本/K线/迷雾 等隐喻物体）
-     * deep navy + crimson + gold 配色基调
-     * 9:16 vertical composition
-   - 例子（章节"至暗时刻"）：'A single dying candle on dark velvet, deep navy background, crimson reflections, cinematic dark editorial illustration, moody dramatic lighting, vertical 9:16, no text, no people'
+   - imagePrompt：一句**英文** AI 绘图提示词。**4-6 张章节图必须保持一致的艺术方向**——同样的暗色编辑插画风格、同样的配色基调、同样的笔触质感，只换主体象征物。
+     必须包含的固定风格关键词（每张图都加）：
+     "cinematic dark editorial illustration, moody dramatic lighting, deep navy background with crimson and gold accents, subtle film grain texture, hand-painted brushwork feel, vertical 9:16 composition, NO text NO people"
+     按本章节内容**只换**主体象征物（蜡烛/山峰/古书/K 线/迷雾/阶梯/瀑布/风暴 等抽象隐喻）和构图。
+   - 例子（章节"至暗时刻"）：'A single dying candle on dark velvet floor, centered, cinematic dark editorial illustration, moody dramatic lighting, deep navy background with crimson and gold accents, subtle film grain texture, hand-painted brushwork feel, vertical 9:16 composition, NO text NO people'
+   - 例子（章节"翻盘时刻"）：'A staircase of glowing candles ascending into golden light, low angle, cinematic dark editorial illustration, moody dramatic lighting, deep navy background with crimson and gold accents, subtle film grain texture, hand-painted brushwork feel, vertical 9:16 composition, NO text NO people'
    第一个章节必须从 0 秒开始。章节边界要选在内容/话题切换的自然点。
 3. 挑出 3 到 5 句话作为金句（适合在视频中放大显示的情绪点 / 观点 / 戏剧转折）。每句金句要：
    - 内容完整（如果一句话被 SRT 切成多条 cue，要合并成完整意思）

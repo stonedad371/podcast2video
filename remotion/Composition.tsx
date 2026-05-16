@@ -199,7 +199,8 @@ const VMain: React.FC<PodcastProps> = (props) => {
       <Audio
         src={audioSrc}
         volume={(f) =>
-          interpolate(f, [0, 9], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
+          // 极轻淡入（3 帧 = 0.1s），避免吞掉播客第一句直接说话的开头
+          interpolate(f, [0, 3], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
         }
       />
 
@@ -214,9 +215,14 @@ const VMain: React.FC<PodcastProps> = (props) => {
       <VWaveform audioSrc={audioSrc} accentColor={accentColor} />
 
       {cues.map((cue) => {
-        const start = cue.startSec * subtitleTimeScale + subtitleOffsetSec;
-        const end = cue.endSec * subtitleTimeScale + subtitleOffsetSec;
-        const from = Math.max(0, secToFrames(start, fps));
+        const rawStart = cue.startSec * subtitleTimeScale + subtitleOffsetSec;
+        const rawEnd = cue.endSec * subtitleTimeScale + subtitleOffsetSec;
+        // clamp 到 [0, audioDurationSec)——cue 末尾超出音频时长会被 VMain 截，
+        // 不 clamp 的话最后一条字幕会缺一截 / 错位到 Outro
+        const start = Math.max(0, Math.min(audioDurationSec, rawStart));
+        const end = Math.max(start, Math.min(audioDurationSec, rawEnd));
+        if (end - start < 0.05) return null; // 太短的（被 clamp 完全掉了）就跳过
+        const from = secToFrames(start, fps);
         const dur = Math.max(1, secToFrames(end - start, fps));
         const style =
           (cue.speaker && speakers[cue.speaker]) || {
@@ -270,7 +276,8 @@ const VCoverBackground: React.FC<{
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const curSec = frame / fps;
-  const scale = 1 + frame * 0.0003;
+  // Ken Burns 缓慢 zoom-in：4 分钟 7200 帧累计放大 ~1.6x，避免末尾失真
+  const scale = 1 + frame * 0.00008;
 
   // 每个章节图作底图的 opacity：从 atSec 起 0.8s 淡入，下一章 atSec 前 0.8s 淡出
   const chapterOpacities = chapters.map((ch, i) => {
@@ -290,14 +297,19 @@ const VCoverBackground: React.FC<{
     return fadeIn * fadeOut;
   });
 
-  // 第一章 atSec 之前 cover 全亮；进入第一章后淡出，让位章节图
+  // 第一章 atSec 之前 cover 全亮；进入第一章后淡出，让位章节图。
+  // 第一章 atSec=0 时（最常见情况），cover 和 chapter1 同时在前 0.8s 叠加，会有亮闪——
+  // 此时直接关掉 cover，由 chapter1 独显，避免双层叠加。
+  const firstAt = chapters[0]?.atSec ?? 0;
   const baseCoverOpacity =
-    chapters.length > 0
-      ? interpolate(curSec, [chapters[0].atSec, chapters[0].atSec + 0.8], [0.95, 0], {
-          extrapolateLeft: 'clamp',
-          extrapolateRight: 'clamp',
-        })
-      : 0.95;
+    chapters.length === 0
+      ? 0.95
+      : firstAt <= 0.05
+        ? 0
+        : interpolate(curSec, [firstAt, firstAt + 0.8], [0.95, 0], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          });
 
   return (
     <>
@@ -383,13 +395,16 @@ const VTopProgress: React.FC<{
             style={{
               position: 'absolute',
               left: `${left}%`,
-              top: -3,
-              width: 3,
-              height: 12,
+              top: -4,
+              width: 4,
+              height: 14,
               transform: 'translateX(-50%)',
-              backgroundColor: passed ? accentColor : 'rgba(255,255,255,0.55)',
-              boxShadow: passed ? `0 0 10px ${accentColor}` : 'none',
-              borderRadius: 1,
+              backgroundColor: passed ? accentColor : '#fff',
+              border: '1px solid rgba(0,0,0,0.6)',
+              boxShadow: passed
+                ? `0 0 10px ${accentColor}, 0 0 0 1px rgba(0,0,0,0.4)`
+                : '0 0 0 1px rgba(0,0,0,0.4)',
+              borderRadius: 1.5,
             }}
           />
         );
@@ -462,7 +477,9 @@ const VPersistentChapterLabel: React.FC<{
   }
   if (activeIdx < 0) return null;
   const active = chapters[activeIdx];
-  const enterSec = curSec - active.atSec;
+  // 章节切入瞬间 VChapterBanner 占据顶部 3.5s——这里让持续标签等 banner 谢幕后再进场，
+  // 避免顶部「品牌条 + 标题 + 持续标签 + 章节胶囊」四样同时拥挤。
+  const enterSec = curSec - active.atSec - CHAPTER_BANNER_SEC;
   const enter = Math.min(1, Math.max(0, enterSec / 0.6));
   const slideY = (1 - enter) * 24;
   return (
@@ -484,10 +501,9 @@ const VPersistentChapterLabel: React.FC<{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 18,
-          backgroundColor: 'rgba(6, 9, 15, 0.72)',
+          backgroundColor: 'rgba(6, 9, 15, 0.88)',
           padding: '14px 28px',
           borderRadius: 999,
-          backdropFilter: 'blur(8px)',
           border: `1px solid ${accentColor}55`,
           boxShadow: `0 8px 28px rgba(0,0,0,0.4)`,
         }}
@@ -533,10 +549,10 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
     <div
       style={{
         position: 'absolute',
-        top: 900,
+        top: 750,
         left: 0,
         right: 0,
-        height: 260,
+        height: 110,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -553,7 +569,8 @@ const VWaveform: React.FC<{audioSrc: string; accentColor: string}> = ({audioSrc,
         }}
       >
         {bars.map((v, i) => {
-          const h = Math.max(8, Math.min(220, v * 850));
+          // 字幕背景会盖住波形 → 把波形挪到字幕上方 + 缩矮，避开 overlap
+          const h = Math.max(6, Math.min(96, v * 360));
           return (
             <div
               key={i}
@@ -621,7 +638,7 @@ const VSubtitleLine: React.FC<{
       <div
         style={{
           width: '100%',
-          backgroundColor: 'rgba(6, 9, 15, 0.85)',
+          backgroundColor: 'rgba(6, 9, 15, 0.92)',
           color: '#fff',
           fontSize: 64,
           lineHeight: 1.4,
@@ -632,9 +649,10 @@ const VSubtitleLine: React.FC<{
           fontFamily: 'system-ui, -apple-system, "PingFang SC", sans-serif',
           textAlign: 'center',
           whiteSpace: 'pre-wrap',
-          backdropFilter: 'blur(12px)',
           borderTop: `4px solid ${style.color}`,
           boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
+          maxHeight: 460,
+          overflow: 'hidden',
         }}
       >
         {style.label && (
@@ -689,9 +707,8 @@ const VChapterBanner: React.FC<{index: number; title: string; accentColor: strin
         style={{
           display: 'flex',
           alignItems: 'stretch',
-          backgroundColor: 'rgba(6, 9, 15, 0.92)',
+          backgroundColor: 'rgba(6, 9, 15, 0.95)',
           borderRadius: 18,
-          backdropFilter: 'blur(16px)',
           border: `1px solid ${accentColor}77`,
           boxShadow: `0 24px 80px ${accentColor}44`,
           overflow: 'hidden',
@@ -751,6 +768,8 @@ const VKeyQuote: React.FC<{text: string; accentColor: string}> = ({text, accentC
         opacity,
         transform: `translateY(${(1 - fadeIn) * 30}px)`,
         fontFamily: '"Noto Serif SC", "PingFang SC", serif',
+        // 金句和字幕容器共占 top:900——显式拔高 z-index 避免 inQuote 偶发错位时字幕盖金句
+        zIndex: 10,
       }}
     >
       <div
@@ -758,8 +777,7 @@ const VKeyQuote: React.FC<{text: string; accentColor: string}> = ({text, accentC
           position: 'relative',
           maxWidth: 920,
           padding: '40px 56px',
-          backgroundColor: 'rgba(6, 9, 15, 0.78)',
-          backdropFilter: 'blur(14px)',
+          backgroundColor: 'rgba(6, 9, 15, 0.92)',
           borderRadius: 22,
           border: `1px solid ${accentColor}55`,
           boxShadow: `0 24px 80px rgba(0,0,0,0.5), 0 0 40px ${accentColor}33`,

@@ -506,8 +506,13 @@ function buildPreviewProps(job: FullJob, brand: string): PodcastProps | null {
     chapterImageSrcs: job.config.chapters.map(
       (_, i) => `/api/chapter-images/${job.id}/${i}/image`,
     ),
-    quotes: job.config.quotes,
-    posterDurationSec: 1 / 30,
+    // quotes 走和 cue 一样的 scale，避免 inQuote 判断错位
+    quotes: job.config.quotes.map((q) => ({
+      ...q,
+      fromSec: q.fromSec * job.computed.subtitleTimeScale,
+      durationSec: q.durationSec * job.computed.subtitleTimeScale,
+    })),
+    posterDurationSec: 0.6,
     outroDurationSec: 5,
     audioDurationSec: job.audio.durationSec,
   };

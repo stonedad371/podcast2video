@@ -19,7 +19,7 @@ const DEFAULT_PROPS: PodcastProps = {
   chapters: [{atSec: 0, title: '第一章'}],
   chapterImageSrcs: [],
   quotes: [],
-  posterDurationSec: 1 / 30,
+  posterDurationSec: 0.6,
   outroDurationSec: 5,
   audioDurationSec: 60,
 };
