@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/github/license/stonedad371/podcast2video?color=blue)](LICENSE) [![Demo](https://img.shields.io/badge/demo-podcast.cab-ff6b6b)](https://podcast.cab) [![Stars](https://img.shields.io/github/stars/stonedad371/podcast2video?style=social)](https://github.com/stonedad371/podcast2video/stargazers)
 
+![一份播客自动生成的封面 + 6 张 AI 章节背景图](docs/hero.png)
+
 [**podcast.cab**](https://podcast.cab) 出品。一份 mp3 + SRT 字幕 → 一条可发布到抖音 / 小红书 / 视频号 / B 站 / YouTube 的短视频，外送一套发布文案。AI 全自动、完全本地。
 
 支持 **9:16 竖屏 / 1:1 方形 / 16:9 横屏** 三种比例。
@@ -39,6 +41,14 @@ cd podcast2video
 | MiniMax | 切章节、挑金句、写标题副标题、生封面、每章生背景图、写发布文案 | https://platform.minimaxi.com/subscribe/token-plan?code=6Vt5rNAbqe&source=link |
 
 Key 存在 `./data/config/api-keys.json`，权限 600，不会进 Docker 镜像也不会上传任何地方。
+
+---
+
+## 成品长这样
+
+渲染完成后直接在浏览器里 9:16 播放 / 下载 mp4。下面这条是上面那份素材跑出来的成品片段：
+
+![浏览器里播放生成好的 9:16 视频，画面里有大字标题、章节卡、字幕和 AI 背景图](docs/player-preview.png)
 
 ---
 
