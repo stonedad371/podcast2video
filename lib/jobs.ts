@@ -28,6 +28,14 @@ export type PublishMeta = {
   tags: string[]; // hashtag 关键词（去掉 #）
 };
 
+// 视频比例：vertical = 1080×1920 (9:16, 默认), square = 1080×1080 (1:1), horizontal = 1920×1080 (16:9)
+export type VideoLayout = 'vertical' | 'square' | 'horizontal';
+export const LAYOUT_DIMENSIONS: Record<VideoLayout, {width: number; height: number; compositionId: string}> = {
+  vertical: {width: 1080, height: 1920, compositionId: 'PodcastVertical'},
+  square: {width: 1080, height: 1080, compositionId: 'PodcastSquare'},
+  horizontal: {width: 1920, height: 1080, compositionId: 'PodcastHorizontal'},
+};
+
 export type Job = {
   id: string;
   createdAt: number;
@@ -42,6 +50,8 @@ export type Job = {
     chapters: Chapter[];
     quotes: Quote[];
     publishMeta?: PublishMeta;
+    // 视频比例。可选——缺省时用 Preferences.defaultLayout 兜底
+    layout?: VideoLayout;
   };
   cover?: {path: string; sizeBytes: number};
   output?: {path: string; sizeBytes: number};

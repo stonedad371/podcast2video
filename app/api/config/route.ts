@@ -7,6 +7,7 @@ import {
   savePrefs,
   DEFAULT_BRAND,
   DEFAULT_SUBTITLE_OFFSET,
+  DEFAULT_LAYOUT,
   type ApiKeys,
   type Preferences,
 } from '@/lib/config';
@@ -18,6 +19,7 @@ function shape(keys: ApiKeys, prefs: Preferences) {
     minimax: {configured: !!keys.minimax, masked: maskKey(keys.minimax)},
     brand: prefs.brand || DEFAULT_BRAND,
     subtitleOffsetSec: prefs.subtitleOffsetSec ?? DEFAULT_SUBTITLE_OFFSET,
+    defaultLayout: prefs.defaultLayout ?? DEFAULT_LAYOUT,
   };
 }
 
@@ -29,12 +31,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as Partial<ApiKeys> & Partial<Preferences>;
-  const {brand, subtitleOffsetSec, ...keyFields} = body;
+  const {brand, subtitleOffsetSec, defaultLayout, ...keyFields} = body;
   if (Object.keys(keyFields).length > 0) {
     await saveKeys(keyFields);
   }
-  if (brand !== undefined || subtitleOffsetSec !== undefined) {
-    await savePrefs({brand, subtitleOffsetSec});
+  if (brand !== undefined || subtitleOffsetSec !== undefined || defaultLayout !== undefined) {
+    await savePrefs({brand, subtitleOffsetSec, defaultLayout});
   }
   const keys = await loadKeys();
   const prefs = await loadPrefs();

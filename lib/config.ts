@@ -13,10 +13,12 @@ export type ApiKeys = {
 export type Preferences = {
   brand?: string;
   subtitleOffsetSec?: number; // 字幕时间补偿（秒）：正值=字幕延后；负值=字幕提前
+  defaultLayout?: 'vertical' | 'square' | 'horizontal';
 };
 
 export const DEFAULT_BRAND = 'podcast.cab';
 export const DEFAULT_SUBTITLE_OFFSET = 0.2;
+export const DEFAULT_LAYOUT: 'vertical' | 'square' | 'horizontal' = 'vertical';
 
 export async function loadKeys(): Promise<ApiKeys> {
   try {
@@ -82,6 +84,11 @@ export async function savePrefs(prefs: Preferences): Promise<void> {
     // clamp 防极端值
     merged.subtitleOffsetSec = Math.max(-2, Math.min(2, Number(prefs.subtitleOffsetSec) || 0));
   }
+  if (prefs.defaultLayout !== undefined) {
+    if (['vertical', 'square', 'horizontal'].includes(prefs.defaultLayout)) {
+      merged.defaultLayout = prefs.defaultLayout;
+    }
+  }
   await fs.writeFile(PREFS_FILE, JSON.stringify(merged, null, 2));
 }
 
@@ -93,4 +100,9 @@ export async function getBrand(): Promise<string> {
 export async function getSubtitleOffset(): Promise<number> {
   const prefs = await loadPrefs();
   return prefs.subtitleOffsetSec ?? DEFAULT_SUBTITLE_OFFSET;
+}
+
+export async function getDefaultLayout(): Promise<'vertical' | 'square' | 'horizontal'> {
+  const prefs = await loadPrefs();
+  return prefs.defaultLayout ?? DEFAULT_LAYOUT;
 }

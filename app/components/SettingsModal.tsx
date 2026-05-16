@@ -2,10 +2,12 @@
 
 import {useEffect, useState} from 'react';
 
+type LayoutOption = 'vertical' | 'square' | 'horizontal';
 type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
   brand: string;
   subtitleOffsetSec: number;
+  defaultLayout: LayoutOption;
 };
 
 export function SettingsModal({open, onClose}: {open: boolean; onClose: () => void}) {
@@ -13,6 +15,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
   const [minimaxKey, setMinimaxKey] = useState('');
   const [brandInput, setBrandInput] = useState('');
   const [offsetInput, setOffsetInput] = useState(0.2);
+  const [layoutInput, setLayoutInput] = useState<LayoutOption>('vertical');
   const [testResult, setTestResult] = useState<{ok: boolean; msg: string} | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -27,6 +30,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
         setConfig(c);
         setBrandInput(c.brand);
         setOffsetInput(c.subtitleOffsetSec);
+        setLayoutInput(c.defaultLayout);
       });
     setAutoRender(localStorage.getItem('autoRender') === 'true');
   }, [open]);
@@ -47,6 +51,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
       if (minimaxKey) body.minimax = minimaxKey;
       if (brandInput !== config?.brand) body.brand = brandInput;
       if (offsetInput !== config?.subtitleOffsetSec) body.subtitleOffsetSec = offsetInput;
+      if (layoutInput !== config?.defaultLayout) body.defaultLayout = layoutInput;
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -57,6 +62,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
       setConfig(data);
       setBrandInput(data.brand);
       setOffsetInput(data.subtitleOffsetSec);
+      setLayoutInput(data.defaultLayout);
       setMinimaxKey('');
       setSaveToast('✓ 已保存');
       setTimeout(() => setSaveToast(null), 2500);
@@ -323,6 +329,59 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             borderRadius: 10,
           }}
         >
+          <div style={{fontSize: 14, fontWeight: 600, color: '#e5e7eb', marginBottom: 8}}>
+            视频比例
+          </div>
+          <div style={{color: '#9ca3af', fontSize: 12, marginBottom: 12, lineHeight: 1.5}}>
+            选输出视频的画幅比例。竖屏适合抖音/小红书/视频号，方形适合小红书图文位，横屏适合 B 站/YouTube。
+          </div>
+          <div style={{display: 'flex', gap: 8}}>
+            {([
+              {value: 'vertical', label: '9:16 竖屏', desc: '1080×1920'},
+              {value: 'square', label: '1:1 方形', desc: '1080×1080'},
+              {value: 'horizontal', label: '16:9 横屏', desc: '1920×1080'},
+            ] as const).map((opt) => {
+              const active = layoutInput === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setLayoutInput(opt.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 8px',
+                    background: active ? 'rgba(251,191,36,0.18)' : 'rgba(0,0,0,0.25)',
+                    border: `1px solid ${active ? '#fbbf24' : '#374151'}`,
+                    borderRadius: 8,
+                    color: active ? '#fde68a' : '#9ca3af',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span>{opt.label}</span>
+                  <span style={{fontSize: 11, fontWeight: 500, color: '#6b7280', fontFamily: 'monospace'}}>
+                    {opt.desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            padding: 16,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid #374151',
+            borderRadius: 10,
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -461,7 +520,9 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
           {(() => {
             const brandChanged = brandInput !== (config?.brand ?? '');
             const offsetChanged = offsetInput !== (config?.subtitleOffsetSec ?? 0.2);
-            const nothingToSave = !minimaxKey && !brandChanged && !offsetChanged;
+            const layoutChanged = layoutInput !== (config?.defaultLayout ?? 'vertical');
+            const nothingToSave =
+              !minimaxKey && !brandChanged && !offsetChanged && !layoutChanged;
             const disabled = saving || nothingToSave;
             return (
               <button

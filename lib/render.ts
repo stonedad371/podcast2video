@@ -24,17 +24,24 @@ async function getServeUrl(): Promise<string> {
 export type RenderOptions = {
   inputProps: PodcastProps;
   outputPath: string;
+  // Composition ID 决定输出比例：PodcastVertical 9:16 / PodcastSquare 1:1 / PodcastHorizontal 16:9
+  compositionId?: string;
   onProgress?: (stage: 'bundling' | 'rendering', progress: number) => void;
 };
 
-export async function renderVideo({inputProps, outputPath, onProgress}: RenderOptions): Promise<void> {
+export async function renderVideo({
+  inputProps,
+  outputPath,
+  compositionId = 'PodcastVertical',
+  onProgress,
+}: RenderOptions): Promise<void> {
   onProgress?.('bundling', 0);
   const serveUrl = await getServeUrl();
   onProgress?.('bundling', 1);
 
   const composition = await selectComposition({
     serveUrl,
-    id: 'PodcastVertical',
+    id: compositionId,
     inputProps,
   });
 

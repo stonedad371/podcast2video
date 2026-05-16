@@ -14,6 +14,7 @@ type ConfigState = {
   minimax: {configured: boolean; masked: string | null};
   brand: string;
   subtitleOffsetSec: number;
+  defaultLayout: 'vertical' | 'square' | 'horizontal';
 };
 
 export default function Home() {
@@ -380,7 +381,8 @@ export default function Home() {
                 config?.brand ?? 'podcast.cab',
                 config?.subtitleOffsetSec ?? 0.2,
               );
-              return previewProps ? <Preview props={previewProps} /> : null;
+              const layout = fullJob.config.layout ?? config?.defaultLayout ?? 'vertical';
+              return previewProps ? <Preview props={previewProps} layout={layout} /> : null;
             })()}
 
           {fullJob && (
@@ -485,6 +487,7 @@ type FullJob = {
     chapters: {atSec: number; title: string; imagePrompt?: string}[];
     quotes: {fromSec: number; durationSec: number; text: string}[];
     publishMeta?: {platformTitle: string; description: string; tags: string[]};
+    layout?: 'vertical' | 'square' | 'horizontal';
   };
   cover?: {path: string; sizeBytes: number};
 };

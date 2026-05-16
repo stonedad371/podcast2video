@@ -4,7 +4,8 @@ import {promises as fs} from 'node:fs';
 import {getJob, updateJob, OUTPUT_DIR, ensureDirs} from '@/lib/jobs';
 import {renderVideo} from '@/lib/render';
 import {ensureChapterImages} from '@/lib/chapter-images';
-import {loadKeys, getBrand, getSubtitleOffset} from '@/lib/config';
+import {loadKeys, getBrand, getSubtitleOffset, getDefaultLayout} from '@/lib/config';
+import {LAYOUT_DIMENSIONS} from '@/lib/jobs';
 import type {PodcastProps} from '@/remotion/Composition';
 
 export const runtime = 'nodejs';
@@ -79,6 +80,9 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
 
   const brand = await getBrand();
   const subtitleOffsetSec = await getSubtitleOffset();
+  // job 自带 layout 优先，否则用全局默认
+  const layout = job.config.layout ?? (await getDefaultLayout());
+  const compositionId = LAYOUT_DIMENSIONS[layout].compositionId;
   // 提前 build 一次仅为校验（封面是否就绪等）；后台 IIFE 里会重新读 job 再 build。
   try {
     buildProps(job, origin, brand, subtitleOffsetSec);
@@ -148,6 +152,7 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
       await renderVideo({
         inputProps,
         outputPath,
+        compositionId,
         onProgress: async (stage, progress) => {
           // Remotion 不 await onProgress；最后一次 progress=1 回调可能晚于下面 status='done'
           // 那一步执行。guard 必须在 serialize 内基于最新磁盘状态做，否则 stale 读会失效。
