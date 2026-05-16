@@ -42,6 +42,7 @@ export async function POST(_req: NextRequest, {params}: {params: Promise<{id: st
         subtitle: finalSubtitle,
         chapters: result.chapters,
         quotes: result.quotes,
+        publishMeta: result.publishMeta,
       },
     });
 

@@ -21,6 +21,12 @@ export type Chapter = {
   imageError?: string;
 };
 export type Quote = {fromSec: number; durationSec: number; text: string};
+// 发布到短视频平台时的元数据（标题、描述、标签）—— 跟视频内的"title"不同，这里偏发文案
+export type PublishMeta = {
+  platformTitle: string; // 抖音/小红书/视频号 发布时用的标题（带钩子）
+  description: string; // 视频简介正文
+  tags: string[]; // hashtag 关键词（去掉 #）
+};
 
 export type Job = {
   id: string;
@@ -35,6 +41,7 @@ export type Job = {
     accentColor: string;
     chapters: Chapter[];
     quotes: Quote[];
+    publishMeta?: PublishMeta;
   };
   cover?: {path: string; sizeBytes: number};
   output?: {path: string; sizeBytes: number};

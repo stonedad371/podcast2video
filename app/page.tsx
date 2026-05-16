@@ -7,6 +7,7 @@ import {SettingsModal} from './components/SettingsModal';
 import {Preview} from './components/Preview';
 import {RenderPanel} from './components/RenderPanel';
 import {ChapterImagesPanel, type ChapterImageInfo} from './components/ChapterImagesPanel';
+import {PublishMetaPanel} from './components/PublishMetaPanel';
 import type {PodcastProps} from '@/remotion/Composition';
 
 type ConfigState = {
@@ -368,6 +369,10 @@ export default function Home() {
             <ChapterImagesPanel jobId={fullJob.id} chapters={chapterImages} />
           )}
 
+          {fullJob?.config.publishMeta && (
+            <PublishMetaPanel meta={fullJob.config.publishMeta} />
+          )}
+
           {fullJob &&
             (() => {
               const previewProps = buildPreviewProps(
@@ -389,6 +394,7 @@ export default function Home() {
                     ? `等章节图就绪（${chapterImages.filter((c) => c.status === 'done').length} / ${chapterImages.length}）`
                     : undefined
               }
+              videoTitle={fullJob.config.title}
             />
           )}
 
@@ -478,6 +484,7 @@ type FullJob = {
     accentColor: string;
     chapters: {atSec: number; title: string; imagePrompt?: string}[];
     quotes: {fromSec: number; durationSec: number; text: string}[];
+    publishMeta?: {platformTitle: string; description: string; tags: string[]};
   };
   cover?: {path: string; sizeBytes: number};
 };

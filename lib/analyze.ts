@@ -1,5 +1,5 @@
 import type {Cue} from './parseSrt';
-import type {Chapter, Quote} from './jobs';
+import type {Chapter, Quote, PublishMeta} from './jobs';
 import {chatCompletion, extractToolArgs} from './minimax-chat';
 
 export type AnalysisResult = {
@@ -7,6 +7,7 @@ export type AnalysisResult = {
   subtitle: string;
   chapters: Chapter[];
   quotes: Quote[];
+  publishMeta: PublishMeta;
 };
 
 const SYSTEM_PROMPT = `你是一位资深的播客视频编辑。给你一份带时间戳的字幕（SRT 解析后的 cues），任务是：
@@ -30,6 +31,10 @@ const SYSTEM_PROMPT = `你是一位资深的播客视频编辑。给你一份带
    - 内容完整（如果一句话被 SRT 切成多条 cue，要合并成完整意思）
    - 起始时间用第一条 cue 的 startSec，持续时间 = (最后一条 cue 的 endSec - 第一条 cue 的 startSec)
    - 文本里如果是两个分句，用 \\n 换行
+4. 给出**发布到短视频平台**（抖音 / 小红书 / 视频号）用的文案，跟视频内"title"可以不同——视频内 title 要严谨有信息量，发布文案要**抓点击**：
+   - platformTitle：15-30 字中文，加点钩子（数字/反差/悬念/吸睛词如"亲测""真相""被裁那天"）。可以带 1-2 个 emoji 但别滥用
+   - description：50-200 字简介，引入故事钩子 + 1-2 句视频亮点 + 引导（"看完更新认知"之类，自然不油腻）。可以分 2-3 段，用换行
+   - tags：5-10 个中文关键词（**不带 # 号**），覆盖：核心主题（如"交易""副业"）、人物身份（如"程序员"）、情绪/痛点（如"焦虑""躺平"）、平台常用标签（如"个人成长"）
 
 只能调用一次 propose_video_structure 工具。不要返回除工具调用外的任何文本。`;
 
@@ -113,8 +118,30 @@ ${transcript}`;
                   required: ['fromSec', 'durationSec', 'text'],
                 },
               },
+              publishMeta: {
+                type: 'object',
+                description: '发布到短视频平台用的标题/描述/标签',
+                properties: {
+                  platformTitle: {
+                    type: 'string',
+                    description: '15-30 字带钩子的发布标题（可含少量 emoji）',
+                  },
+                  description: {
+                    type: 'string',
+                    description: '50-200 字简介，含故事钩子 + 视频亮点 + 自然引导',
+                  },
+                  tags: {
+                    type: 'array',
+                    items: {type: 'string'},
+                    minItems: 5,
+                    maxItems: 10,
+                    description: '5-10 个中文关键词标签，不带 # 号',
+                  },
+                },
+                required: ['platformTitle', 'description', 'tags'],
+              },
             },
-            required: ['title', 'subtitle', 'chapters', 'quotes'],
+            required: ['title', 'subtitle', 'chapters', 'quotes', 'publishMeta'],
           },
         },
       },
