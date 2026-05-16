@@ -133,15 +133,18 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
           maxWidth: 600,
           background: '#111827',
           borderRadius: 20,
-          padding: 32,
+          maxHeight: 'calc(100vh - 48px)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
+        <div style={{padding: '28px 32px 16px', flexShrink: 0}}>
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
           }}
         >
           <h2 style={{fontSize: 26, fontWeight: 800, color: '#fff'}}>设置</h2>
@@ -158,7 +161,9 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             ×
           </button>
         </div>
+        </div>
 
+        <div style={{flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 32px 8px'}}>
         <p style={{color: '#9ca3af', fontSize: 14, marginBottom: 24, lineHeight: 1.6}}>
           填入 MiniMax 的 API key（同一个 key 用于文本分析 + 封面图生成）。本地存储在{' '}
           <code style={{color: '#fbbf24', fontSize: 12}}>/data/config/api-keys.json</code>
@@ -481,7 +486,9 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
             </div>
           </label>
         </div>
+        </div>
 
+        <div style={{padding: '16px 32px 24px', flexShrink: 0, borderTop: '1px solid #1f2937'}}>
         {saveToast && (
           <div
             style={{
@@ -544,6 +551,7 @@ export function SettingsModal({open, onClose}: {open: boolean; onClose: () => vo
               </button>
             );
           })()}
+        </div>
         </div>
       </div>
     </div>
